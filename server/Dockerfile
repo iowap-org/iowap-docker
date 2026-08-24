@@ -11,7 +11,7 @@ ARG IOWAP_SERVER_REF=main
 FROM python:3.11-slim
 
 # tini as PID 1 so signals (SIGTERM/SIGINT) reach uvicorn cleanly on stop.
-RUN apt-get update && apt-get install -y --no-install-recommends tini \
+RUN apt-get update && apt-get install -y --no-install-recommends tini git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
