@@ -16,7 +16,7 @@ ARG IOWAP_NODE_REF=main
 FROM python:3.11-slim
 
 # tini as PID 1 so signals (SIGTERM/SIGINT) reach node-daemon cleanly on stop.
-RUN apt-get update && apt-get install -y --no-install-recommends tini \
+RUN apt-get update && apt-get install -y --no-install-recommends tini git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -46,6 +46,7 @@ USER appuser
 # Entrypoint translates env → relay_config.json + node.yaml, registers the
 # node on first start, then execs node-daemon.
 COPY --chown=appuser:appuser base/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 # Healthcheck script (reads the daemon status file).
 COPY --chown=appuser:appuser base/healthcheck.py /app/healthcheck.py
 
