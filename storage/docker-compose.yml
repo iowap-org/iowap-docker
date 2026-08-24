@@ -1,0 +1,34 @@
+# IOWAP — storage node compose.
+#
+# Runs the storage service node against an external relay (point RELAY_URL
+# at your running relay). The base image must be built first:
+#
+#   docker build -t iowap-node-base -f base/Dockerfile .
+#   docker build -t iowap-storage   -f storage/Dockerfile .
+#   docker compose -f storage/docker-compose.yml up -d
+
+name: iowap-storage
+
+services:
+  storage-node:
+    build:
+      context: .
+      dockerfile: storage/Dockerfile
+      args:
+        NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-iowap-node-base:latest}
+    image: iowap-storage:local
+    container_name: iowap-storage
+    restart: unless-stopped
+    environment:
+      RELAY_URL: ${RELAY_URL:?RELAY_URL is required}
+      NODE_NAME: ${NODE_NAME:-storage-node}
+      NODE_ROLE: service
+      NODE_ENDPOINT: ${NODE_ENDPOINT:-http://storage-node:8791}
+      NODE_REGISTRATION_SECRET: ${NODE_REGISTRATION_SECRET:-}
+      RELAY_SERVER_IP: ${RELAY_SERVER_IP:-}
+    volumes:
+      - ${STORAGE_DIR:-./storage}:/storage
+      - storage-state:/home/appuser/.relay
+
+volumes:
+  storage-state:
