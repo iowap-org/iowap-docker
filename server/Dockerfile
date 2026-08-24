@@ -40,6 +40,7 @@ USER appuser
 
 # Entrypoint runs DB init + seed init, then execs the server.
 COPY --chown=appuser:appuser server/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 # Healthcheck script (tries http, then https).
 COPY --chown=appuser:appuser server/healthcheck.py /app/healthcheck.py
 
