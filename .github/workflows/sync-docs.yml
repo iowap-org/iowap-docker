@@ -37,6 +37,7 @@ jobs:
           repository: iowap-org/iowap-docs
           ref: main
           token: ${{ secrets.IOWAP_DOCS_TOKEN }}
+          persist-credentials: false
           path: iowap-docs
 
       - name: Update Docker pull commands to :latest
@@ -114,6 +115,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${DOCS_SYNC_TOKEN}@github.com/iowap-org/iowap-docs.git"
           git add .
           git commit -m "[bot] Sync: Docker images updated"
           git push origin HEAD:main

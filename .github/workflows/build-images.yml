@@ -95,6 +95,7 @@ jobs:
           tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
           build-args: |
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
+            IOWAP_SERVER_REF=${{ steps.refs.outputs.iowap_server_ref }}
 
       - name: Build and push server image
         if: ${{ matrix.image == 'server' }}
