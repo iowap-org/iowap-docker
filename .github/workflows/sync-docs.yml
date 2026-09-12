@@ -12,20 +12,36 @@ permissions:
 
 jobs:
   sync-docs:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
-    env:
-      DOCS_SYNC_TOKEN: ${{ secrets.IOWAP_DOCS_TOKEN || secrets.GITHUB_TOKEN }}
     steps:
+      - name: Check trigger conditions
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHOULD_RUN="false"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            SHOULD_RUN="true"
+          else
+            CONCLUSION="$(jq -r '.workflow_run.conclusion // empty' "$GITHUB_EVENT_PATH")"
+            HEAD_BRANCH="$(jq -r '.workflow_run.head_branch // empty' "$GITHUB_EVENT_PATH")"
+            if [ "$CONCLUSION" = "success" ] && [ "$HEAD_BRANCH" = "main" ]; then
+              SHOULD_RUN="true"
+            fi
+          fi
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+
       - name: Checkout iowap-docs
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
         uses: actions/checkout@v4
         with:
           repository: iowap-org/iowap-docs
           ref: main
-          token: ${{ env.DOCS_SYNC_TOKEN }}
+          token: ${{ secrets.IOWAP_DOCS_TOKEN }}
           path: iowap-docs
 
       - name: Update Docker pull commands to :latest
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
         run: |
@@ -48,6 +64,7 @@ jobs:
           PY
 
       - name: Validate docker-compose snippets
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
         run: |
@@ -75,12 +92,13 @@ jobs:
           PY
 
       - name: Commit and push docs update
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${DOCS_SYNC_TOKEN}" ]; then
-            echo "Missing token for docs sync (set IOWAP_DOCS_TOKEN or ensure GITHUB_TOKEN has cross-repo access)."
+          if [ -z "${{ secrets.IOWAP_DOCS_TOKEN }}" ]; then
+            echo "Missing IOWAP_DOCS_TOKEN secret for cross-repository docs sync."
             exit 1
           fi
           if git diff --quiet; then
