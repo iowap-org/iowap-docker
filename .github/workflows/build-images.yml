@@ -70,7 +70,7 @@ jobs:
           push: true
           tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
           build-args: |
-            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base:latest
+            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
             IOWAP_SERVER_REF=${{ github.event.client_payload.iowap_server_ref || 'main' }}
 
       - name: Export digest
