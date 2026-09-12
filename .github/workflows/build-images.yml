@@ -100,7 +100,7 @@ jobs:
           tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
           build-args: |
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
-            IOWAP_SERVER_REF=${{ needs.build-base.outputs.iowap_server_ref }}
+            IOWAP_NODE_REF=${{ needs.build-base.outputs.iowap_node_ref }}
 
       - name: Build and push server image
         if: ${{ matrix.image == 'server' }}
@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p digests
-          echo "${{ matrix.image }}=${{ steps.build_storage.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+          echo "ghcr.io/iowap-org/iowap-storage@${{ steps.build_storage.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
       - name: Export server digest
         if: ${{ matrix.image == 'server' }}
@@ -129,7 +129,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p digests
-          echo "${{ matrix.image }}=${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+          echo "ghcr.io/iowap-org/iowap-server@${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
       - name: Upload storage digest artifact
         if: ${{ matrix.image == 'storage' }}
