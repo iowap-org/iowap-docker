@@ -64,7 +64,11 @@ jobs:
 
           path = Path(sys.argv[1])
           text = path.read_text(encoding="utf-8")
-          updated = re.sub(r"(ghcr\\.io/iowap-org/iowap-(?:node-base|storage|server)):[^\\s`]+", r"\\1:latest", text)
+          updated = re.sub(
+              r"(ghcr\\.io/iowap-org/iowap-(?:node-base|storage|server)):[A-Za-z0-9_][A-Za-z0-9._-]{0,127}",
+              r"\\1:latest",
+              text,
+          )
           path.write_text(updated, encoding="utf-8")
           PY
 
@@ -83,7 +87,7 @@ jobs:
           errors = []
           for md_file in Path('.').rglob('*.md'):
               content = md_file.read_text(encoding='utf-8')
-              blocks = re.findall(r"```(?:yaml|yml)\\n(.*?)```", content, flags=re.DOTALL)
+              blocks = re.findall(r"```(?:yaml|yml)\\r?\\n(.*?)```", content, flags=re.DOTALL)
               for idx, block in enumerate(blocks, start=1):
                   if 'services:' not in block:
                       continue

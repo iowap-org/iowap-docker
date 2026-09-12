@@ -17,6 +17,7 @@ jobs:
     outputs:
       image_digest: ${{ steps.build.outputs.digest }}
       iowap_node_ref: ${{ steps.refs.outputs.iowap_node_ref }}
+      iowap_server_ref: ${{ steps.refs.outputs.iowap_server_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,7 +31,12 @@ jobs:
           if [ -z "$IOWAP_NODE_REF" ]; then
             IOWAP_NODE_REF="main"
           fi
+          IOWAP_SERVER_REF="$(jq -r '.client_payload?.iowap_server_ref // empty' "$GITHUB_EVENT_PATH")"
+          if [ -z "$IOWAP_SERVER_REF" ]; then
+            IOWAP_SERVER_REF="main"
+          fi
           echo "iowap_node_ref=$IOWAP_NODE_REF" >> "$GITHUB_OUTPUT"
+          echo "iowap_server_ref=$IOWAP_SERVER_REF" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -63,16 +69,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve refs
-        id: refs
+      - name: Validate base digest
         shell: bash
         run: |
           set -euo pipefail
-          IOWAP_SERVER_REF="$(jq -r '.client_payload?.iowap_server_ref // empty' "$GITHUB_EVENT_PATH")"
-          if [ -z "$IOWAP_SERVER_REF" ]; then
-            IOWAP_SERVER_REF="main"
+          DIGEST="${{ needs.build-base.outputs.image_digest }}"
+          if [ -z "$DIGEST" ] || [[ ! "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Missing or invalid base image digest from build-base: '$DIGEST'"
+            exit 1
           fi
-          echo "iowap_server_ref=$IOWAP_SERVER_REF" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -95,7 +100,7 @@ jobs:
           tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
           build-args: |
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
-            IOWAP_SERVER_REF=${{ steps.refs.outputs.iowap_server_ref }}
+            IOWAP_SERVER_REF=${{ needs.build-base.outputs.iowap_server_ref }}
 
       - name: Build and push server image
         if: ${{ matrix.image == 'server' }}
@@ -108,7 +113,7 @@ jobs:
           tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
           build-args: |
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
-            IOWAP_SERVER_REF=${{ steps.refs.outputs.iowap_server_ref }}
+            IOWAP_SERVER_REF=${{ needs.build-base.outputs.iowap_server_ref }}
 
       - name: Export storage digest
         if: ${{ matrix.image == 'storage' }}
