@@ -109,13 +109,21 @@ jobs:
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
             IOWAP_SERVER_REF=${{ steps.refs.outputs.iowap_server_ref }}
 
-      - name: Export digest
+      - name: Export storage digest
+        if: ${{ matrix.image == 'storage' }}
         shell: bash
         run: |
           set -euo pipefail
-          DIGEST="${{ steps.build_storage.outputs.digest }}${{ steps.build_server.outputs.digest }}"
           mkdir -p digests
-          echo "${{ matrix.image }}=${DIGEST}" > "digests/${{ matrix.image }}.txt"
+          echo "${{ matrix.image }}=${{ steps.build_storage.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
+      - name: Export server digest
+        if: ${{ matrix.image == 'server' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          echo "${{ matrix.image }}=${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4
