@@ -125,7 +125,15 @@ jobs:
           mkdir -p digests
           echo "${{ matrix.image }}=${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
-      - name: Upload digest artifact
+      - name: Upload storage digest artifact
+        if: ${{ matrix.image == 'storage' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt
+
+      - name: Upload server digest artifact
+        if: ${{ matrix.image == 'server' }}
         uses: actions/upload-artifact@v4
         with:
           name: image-digests-${{ matrix.image }}

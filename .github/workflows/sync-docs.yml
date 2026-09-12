@@ -99,9 +99,11 @@ jobs:
         if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
+        env:
+          DOCS_SYNC_TOKEN: ${{ secrets.IOWAP_DOCS_TOKEN }}
         run: |
           set -euo pipefail
-          if [ -z "${{ secrets.IOWAP_DOCS_TOKEN }}" ]; then
+          if [ -z "${DOCS_SYNC_TOKEN}" ]; then
             echo "Missing IOWAP_DOCS_TOKEN secret for cross-repository docs sync."
             exit 1
           fi
