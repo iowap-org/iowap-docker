@@ -1,0 +1,85 @@
+name: Build Docker Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rebuild-images]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-base:
+    runs-on: ubuntu-latest
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push iowap-node-base:latest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: base/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-node-base:latest
+          build-args: |
+            IOWAP_NODE_REF=${{ github.event.client_payload.iowap_node_ref || 'main' }}
+
+  build-services:
+    needs: build-base
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [storage, server]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push service image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
+          build-args: |
+            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base:latest
+            IOWAP_SERVER_REF=${{ github.event.client_payload.iowap_server_ref || 'main' }}
+
+      - name: Export digest
+        run: |
+          mkdir -p digests
+          echo "${{ matrix.image }}=${{ steps.build.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
+      - name: Upload digest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt
