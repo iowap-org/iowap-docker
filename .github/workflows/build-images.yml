@@ -1,0 +1,153 @@
+name: Build Docker Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  repository_dispatch:
+    types: [rebuild-images]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-base:
+    runs-on: ubuntu-latest
+    outputs:
+      image_digest: ${{ steps.build.outputs.digest }}
+      iowap_node_ref: ${{ steps.refs.outputs.iowap_node_ref }}
+      iowap_server_ref: ${{ steps.refs.outputs.iowap_server_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve refs
+        id: refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          IOWAP_NODE_REF="$(jq -r '.client_payload?.iowap_node_ref // empty' "$GITHUB_EVENT_PATH")"
+          if [ -z "$IOWAP_NODE_REF" ]; then
+            IOWAP_NODE_REF="main"
+          fi
+          IOWAP_SERVER_REF="$(jq -r '.client_payload?.iowap_server_ref // empty' "$GITHUB_EVENT_PATH")"
+          if [ -z "$IOWAP_SERVER_REF" ]; then
+            IOWAP_SERVER_REF="main"
+          fi
+          echo "iowap_node_ref=$IOWAP_NODE_REF" >> "$GITHUB_OUTPUT"
+          echo "iowap_server_ref=$IOWAP_SERVER_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Validate resolved refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ steps.refs.outputs.iowap_node_ref }}"
+          test -n "${{ steps.refs.outputs.iowap_server_ref }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push iowap-node-base:latest
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: base/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-node-base:latest
+          build-args: |
+            IOWAP_NODE_REF=${{ steps.refs.outputs.iowap_node_ref }}
+
+  build-services:
+    needs: build-base
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: [storage, server]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate base digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIGEST="${{ needs.build-base.outputs.image_digest }}"
+          if [ -z "$DIGEST" ] || [[ ! "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "Missing or invalid base image digest from build-base: '$DIGEST'"
+            exit 1
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push storage image
+        if: ${{ matrix.image == 'storage' }}
+        id: build_storage
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
+          build-args: |
+            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
+            IOWAP_NODE_REF=${{ needs.build-base.outputs.iowap_node_ref }}
+
+      - name: Build and push server image
+        if: ${{ matrix.image == 'server' }}
+        id: build_server
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
+          build-args: |
+            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
+            IOWAP_SERVER_REF=${{ needs.build-base.outputs.iowap_server_ref }}
+
+      - name: Export storage digest
+        if: ${{ matrix.image == 'storage' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          echo "ghcr.io/iowap-org/iowap-storage@${{ steps.build_storage.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
+      - name: Export server digest
+        if: ${{ matrix.image == 'server' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          echo "ghcr.io/iowap-org/iowap-server@${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
+      - name: Upload storage digest artifact
+        if: ${{ matrix.image == 'storage' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt
+
+      - name: Upload server digest artifact
+        if: ${{ matrix.image == 'server' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt

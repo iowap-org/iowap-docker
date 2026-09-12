@@ -1,0 +1,130 @@
+name: Sync Docs with Latest Docker Images
+
+on:
+  workflow_run:
+    workflows: ["Build Docker Images"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check trigger conditions
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHOULD_RUN="false"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            SHOULD_RUN="true"
+          else
+            CONCLUSION="$(jq -r '.workflow_run.conclusion // empty' "$GITHUB_EVENT_PATH")"
+            HEAD_BRANCH="$(jq -r '.workflow_run.head_branch // empty' "$GITHUB_EVENT_PATH")"
+            if [ "$CONCLUSION" = "success" ] && [ "$HEAD_BRANCH" = "main" ]; then
+              SHOULD_RUN="true"
+            fi
+          fi
+          echo "should_run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout iowap-docs
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: iowap-org/iowap-docs
+          ref: main
+          token: ${{ secrets.IOWAP_DOCS_TOKEN }}
+          persist-credentials: false
+          path: iowap-docs
+
+      - name: Update Docker pull commands to :latest
+        id: update_doc
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
+        working-directory: iowap-docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t MATCHES < <(find . -type f -name 'getting-started.md' | sort)
+          if [ "${#MATCHES[@]}" -eq 0 ]; then
+            echo "getting-started.md not found."
+            exit 1
+          fi
+          if [ "${#MATCHES[@]}" -gt 1 ]; then
+            printf 'Multiple getting-started.md files found:\\n%s\\n' "${MATCHES[@]}"
+            exit 1
+          fi
+          FILE="${MATCHES[0]}"
+          echo "path=$FILE" >> "$GITHUB_OUTPUT"
+
+          python - "$FILE" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          path = Path(sys.argv[1])
+          text = path.read_text(encoding="utf-8")
+          updated, replacements = re.subn(
+              r"(ghcr\.io/iowap-org/iowap-(?:node-base|storage|server)):[A-Za-z0-9_][A-Za-z0-9._-]{0,127}",
+              r"\1:latest",
+              text,
+          )
+          if replacements == 0:
+              raise SystemExit("No iowap image tags found to update in getting-started.md")
+          path.write_text(updated, encoding="utf-8")
+          PY
+
+      - name: Validate docker-compose snippets
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
+        working-directory: iowap-docs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check --quiet pyyaml
+          python - "${{ steps.update_doc.outputs.path }}" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+          import yaml
+
+          md_file = Path(sys.argv[1])
+          errors = []
+          content = md_file.read_text(encoding='utf-8')
+          blocks = re.findall(r"```(?:yaml|yml)\r?\n(.*?)```", content, flags=re.DOTALL)
+          for idx, block in enumerate(blocks, start=1):
+              if 'services:' not in block:
+                  continue
+              try:
+                  yaml.safe_load(block)
+              except yaml.YAMLError as exc:
+                  errors.append(f"{md_file} [block {idx}]: {exc}")
+
+          if errors:
+              raise SystemExit("\\n".join(errors))
+          PY
+
+      - name: Commit and push docs update
+        if: ${{ steps.gate.outputs.should_run == 'true' }}
+        working-directory: iowap-docs
+        shell: bash
+        env:
+          DOCS_SYNC_TOKEN: ${{ secrets.IOWAP_DOCS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DOCS_SYNC_TOKEN}" ]; then
+            echo "Missing IOWAP_DOCS_TOKEN secret for cross-repository docs sync."
+            exit 1
+          fi
+          if git diff --quiet; then
+            echo "No docs changes required."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${DOCS_SYNC_TOKEN}@github.com/iowap-org/iowap-docs.git"
+          git add .
+          git commit -m "[bot] Sync: Docker images updated"
+          git push origin HEAD:main
