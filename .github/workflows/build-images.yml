@@ -26,7 +26,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IOWAP_NODE_REF="$(jq -r '.client_payload.iowap_node_ref // empty' "$GITHUB_EVENT_PATH")"
+          IOWAP_NODE_REF="$(jq -r '.client_payload?.iowap_node_ref // empty' "$GITHUB_EVENT_PATH")"
           if [ -z "$IOWAP_NODE_REF" ]; then
             IOWAP_NODE_REF="main"
           fi
@@ -68,7 +68,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IOWAP_SERVER_REF="$(jq -r '.client_payload.iowap_server_ref // empty' "$GITHUB_EVENT_PATH")"
+          IOWAP_SERVER_REF="$(jq -r '.client_payload?.iowap_server_ref // empty' "$GITHUB_EVENT_PATH")"
           if [ -z "$IOWAP_SERVER_REF" ]; then
             IOWAP_SERVER_REF="main"
           fi
