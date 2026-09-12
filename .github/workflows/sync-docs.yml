@@ -41,6 +41,7 @@ jobs:
           path: iowap-docs
 
       - name: Update Docker pull commands to :latest
+        id: update_doc
         if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
@@ -56,6 +57,7 @@ jobs:
             exit 1
           fi
           FILE="${MATCHES[0]}"
+          echo "path=$FILE" >> "$GITHUB_OUTPUT"
 
           python - "$FILE" <<'PY'
           from pathlib import Path
@@ -64,11 +66,13 @@ jobs:
 
           path = Path(sys.argv[1])
           text = path.read_text(encoding="utf-8")
-          updated = re.sub(
+          updated, replacements = re.subn(
               r"(ghcr\.io/iowap-org/iowap-(?:node-base|storage|server)):[A-Za-z0-9_][A-Za-z0-9._-]{0,127}",
               r"\1:latest",
               text,
           )
+          if replacements == 0:
+              raise SystemExit("No iowap image tags found to update in getting-started.md")
           path.write_text(updated, encoding="utf-8")
           PY
 
@@ -79,22 +83,23 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --quiet pyyaml
-          python - <<'PY'
+          python - "${{ steps.update_doc.outputs.path }}" <<'PY'
           from pathlib import Path
           import re
+          import sys
           import yaml
 
+          md_file = Path(sys.argv[1])
           errors = []
-          for md_file in Path('.').rglob('*.md'):
-              content = md_file.read_text(encoding='utf-8')
-              blocks = re.findall(r"```(?:yaml|yml)\r?\n(.*?)```", content, flags=re.DOTALL)
-              for idx, block in enumerate(blocks, start=1):
-                  if 'services:' not in block:
-                      continue
-                  try:
-                      yaml.safe_load(block)
-                  except yaml.YAMLError as exc:
-                      errors.append(f"{md_file} [block {idx}]: {exc}")
+          content = md_file.read_text(encoding='utf-8')
+          blocks = re.findall(r"```(?:yaml|yml)\r?\n(.*?)```", content, flags=re.DOTALL)
+          for idx, block in enumerate(blocks, start=1):
+              if 'services:' not in block:
+                  continue
+              try:
+                  yaml.safe_load(block)
+              except yaml.YAMLError as exc:
+                  errors.append(f"{md_file} [block {idx}]: {exc}")
 
           if errors:
               raise SystemExit("\\n".join(errors))
