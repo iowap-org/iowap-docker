@@ -40,40 +40,35 @@ jobs:
           persist-credentials: false
           path: iowap-docs
 
-      - name: Update Docker pull commands to :latest
-        id: update_doc
+      - name: Sync image tags to :latest
+        id: sync_tags
         if: ${{ steps.gate.outputs.should_run == 'true' }}
         working-directory: iowap-docs
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t MATCHES < <(find . -type f -name 'getting-started.md' | sort)
-          if [ "${#MATCHES[@]}" -eq 0 ]; then
-            echo "getting-started.md not found."
-            exit 1
-          fi
-          if [ "${#MATCHES[@]}" -gt 1 ]; then
-            printf 'Multiple getting-started.md files found:\\n%s\\n' "${MATCHES[@]}"
-            exit 1
-          fi
-          FILE="${MATCHES[0]}"
-          echo "path=$FILE" >> "$GITHUB_OUTPUT"
-
-          python - "$FILE" <<'PY'
+          python - <<'PY'
           from pathlib import Path
           import re
-          import sys
 
-          path = Path(sys.argv[1])
-          text = path.read_text(encoding="utf-8")
-          updated, replacements = re.subn(
-              r"(ghcr\.io/iowap-org/iowap-(?:node-base|storage|server)):[A-Za-z0-9_][A-Za-z0-9._-]{0,127}",
-              r"\1:latest",
-              text,
+          pattern = re.compile(
+              r"ghcr\.io/iowap-org/iowap-(?:node-base|storage|server)"
+              r":[A-Za-z0-9_][A-Za-z0-9._-]{0,127}"
           )
-          if replacements == 0:
-              raise SystemExit("No iowap image tags found to update in getting-started.md")
-          path.write_text(updated, encoding="utf-8")
+          changed = []
+          for path in sorted(Path(".").rglob("*.md")):
+              text = path.read_text(encoding="utf-8")
+              updated = pattern.sub(
+                  lambda m: m.group(0).split(":")[0] + ":latest", text
+              )
+              if updated != text:
+                  path.write_text(updated, encoding="utf-8")
+                  changed.append(str(path))
+          if changed:
+              print("Updated files:")
+              print("\n".join(changed))
+          else:
+              print("All iowap image references already on :latest.")
           PY
 
       - name: Validate docker-compose snippets
@@ -83,26 +78,26 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check --quiet pyyaml
-          python - "${{ steps.update_doc.outputs.path }}" <<'PY'
+          python - <<'PY'
           from pathlib import Path
           import re
-          import sys
           import yaml
 
-          md_file = Path(sys.argv[1])
           errors = []
-          content = md_file.read_text(encoding='utf-8')
-          blocks = re.findall(r"```(?:yaml|yml)\r?\n(.*?)```", content, flags=re.DOTALL)
-          for idx, block in enumerate(blocks, start=1):
-              if 'services:' not in block:
-                  continue
-              try:
-                  yaml.safe_load(block)
-              except yaml.YAMLError as exc:
-                  errors.append(f"{md_file} [block {idx}]: {exc}")
+          for md_file in sorted(Path(".").rglob("*.md")):
+              content = md_file.read_text(encoding='utf-8')
+              blocks = re.findall(r"```(?:yaml|yml)\r?\n(.*?)```", content, flags=re.DOTALL)
+              for idx, block in enumerate(blocks, start=1):
+                  if 'services:' not in block:
+                      continue
+                  try:
+                      yaml.safe_load(block)
+                  except yaml.YAMLError as exc:
+                      errors.append(f"{md_file} [block {idx}]: {exc}")
 
           if errors:
-              raise SystemExit("\\n".join(errors))
+              raise SystemExit("\n".join(errors))
+          print("All docker-compose snippets valid.")
           PY
 
       - name: Commit and push docs update
