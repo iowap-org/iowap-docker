@@ -2,7 +2,7 @@
 # IOWAP — node base entrypoint (T-119).
 #
 # Translates environment variables into the files the node stack reads from
-# ~/.relay (relay_config.json, node.yaml, ai-relay-agent.json, token) and
+# ~/.relay (relay_config.json, node.yaml, iowap-agent.json|ai-relay-agent.json, token) and
 # then execs the node-daemon (SSE, event-driven).
 #
 # Environment variables (all optional unless noted):
@@ -23,8 +23,20 @@ set -euo pipefail
 
 RELAY_DIR="${HOME}/.relay"
 CONFIG_JSON="${RELAY_DIR}/relay_config.json"
-META_JSON="${RELAY_DIR}/ai-relay-agent.json"
-TOKEN_FILE="${RELAY_DIR}/ai-relay-agent.token"
+# T-148a: prefer the post-migration file names (iowap-agent.*); fall back
+# to the legacy ai-relay-agent.* names for volumes created before the
+# rebranding. The daemon migrates to iowap-agent.* on first token rotation
+# and removes the legacy files, so the entrypoint must accept both —
+# otherwise a healthy node re-registers on restart and hits 409 (node_name
+# already taken in the relay DB).
+META_JSON="${RELAY_DIR}/iowap-agent.json"
+TOKEN_FILE="${RELAY_DIR}/iowap-agent.token"
+if [ ! -f "${META_JSON}" ] && [ -f "${RELAY_DIR}/ai-relay-agent.json" ]; then
+    META_JSON="${RELAY_DIR}/ai-relay-agent.json"
+fi
+if [ ! -f "${TOKEN_FILE}" ] && [ -f "${RELAY_DIR}/ai-relay-agent.token" ]; then
+    TOKEN_FILE="${RELAY_DIR}/ai-relay-agent.token"
+fi
 NODE_YAML="${RELAY_DIR}/node.yaml"
 
 mkdir -p "${RELAY_DIR}"
@@ -154,11 +166,11 @@ meta = {
 rel = os.path.expanduser("~/.relay")
 import pathlib
 pathlib.Path(rel).mkdir(parents=True, exist_ok=True)
-pathlib.Path(rel, "ai-relay-agent.json").write_text(json.dumps(meta, indent=2))
-os.chmod(os.path.join(rel, "ai-relay-agent.json"), 0o600)
+pathlib.Path(rel, "iowap-agent.json").write_text(json.dumps(meta, indent=2))
+os.chmod(os.path.join(rel, "iowap-agent.json"), 0o600)
 token = data.get("token")
 if token:
-    token_path = pathlib.Path(rel, "ai-relay-agent.token")
+    token_path = pathlib.Path(rel, "iowap-agent.token")
     token_path.write_text(json.dumps({"token": token, "expires_at": None}) + "\n")
     os.chmod(token_path, 0o600)
 status = data.get("status", "pending")
