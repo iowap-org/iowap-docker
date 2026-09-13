@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      iowap_node_ref:
+        description: "git ref of iowap-org/iowap-node to bake into the base image (empty = main)"
+        required: false
+        default: ""
   repository_dispatch:
     types: [rebuild-images]
 
@@ -27,7 +32,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          IOWAP_NODE_REF="$(jq -r '.client_payload?.iowap_node_ref // empty' "$GITHUB_EVENT_PATH")"
+          # Priority: dispatch input > repository_dispatch payload > default main
+          IOWAP_NODE_REF="${{ github.event.inputs.iowap_node_ref || '' }}"
+          if [ -z "$IOWAP_NODE_REF" ]; then
+            IOWAP_NODE_REF="$(jq -r '.client_payload?.iowap_node_ref // empty' "$GITHUB_EVENT_PATH")"
+          fi
           if [ -z "$IOWAP_NODE_REF" ]; then
             IOWAP_NODE_REF="main"
           fi

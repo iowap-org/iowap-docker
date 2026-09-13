@@ -1,0 +1,68 @@
+name: Refresh node base
+
+# Rebuilds base/storage/server images when a NEW iowap-node wheel release
+# appears (tag wheel-vX.Y.Z in iowap-org/iowap-node). The build pins
+# IOWAP_NODE_REF to that exact tag instead of the default 'main' — images
+# track actual releases, reproducibly.
+#
+# Polls every 30 min (token-free: public repos). Comparison is date-based:
+# release created_at vs. last SUCCESSFUL build's start time. Self-healing —
+# if a build fails, the release stays "newer" and the next poll retries.
+# Trigger is workflow_dispatch on THIS repo (GITHUB_TOKEN may dispatch its
+# own workflows; cross-repo dispatch is not allowed for GITHUB_TOKEN).
+#
+# Docs-sync (sync-docs.yml, workflow_run on build-images) chains
+# automatically after a green build.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for new wheel release
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REL=$(gh api repos/iowap-org/iowap-node/releases \
+            --jq '[.[] | select(.tag_name | startswith("wheel-v"))] | sort_by(.created_at) | reverse | .[0] // empty')
+          if [ -z "$REL" ]; then
+            echo "No wheel-v* release in iowap-node — nothing to do"
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG=$(echo "$REL" | jq -r .tag_name)
+          RELDATE=$(echo "$REL" | jq -r .created_at)
+          echo "Latest wheel release: $TAG ($RELDATE)"
+
+          PREV=$(gh api "repos/iowap-org/iowap-docker/actions/runs?per_page=30" \
+            --jq '[.workflow_runs[] | select(.name=="Build Docker Images" and .conclusion=="success")] | .[0].run_started_at // empty')
+          if [ -n "$PREV" ] && [[ "$RELDATE" < "$PREV" ]]; then
+            echo "Already covered by successful build from $PREV — no-op"
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "New wheel $TAG (last successful build: ${PREV:-none}) — dispatching"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "dispatch=true" >> "$GITHUB_OUTPUT"
+
+      - name: Trigger image build pinned to wheel tag
+        if: steps.check.outputs.dispatch == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build-images.yml --ref main \
+            -f iowap_node_ref=${{ steps.check.outputs.tag }}
+          sleep 10
+          RUN=$(gh run list -R iowap-org/iowap-docker --workflow=build-images.yml \
+            --event=workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId')
+          echo "Triggered Build Docker Images run: https://github.com/iowap-org/iowap-docker/actions/runs/$RUN"
