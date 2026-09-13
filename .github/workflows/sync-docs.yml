@@ -32,7 +32,7 @@ jobs:
 
       - name: Checkout iowap-docs
         if: ${{ steps.gate.outputs.should_run == 'true' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: iowap-org/iowap-docs
           ref: main
