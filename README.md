@@ -11,6 +11,7 @@
 # | `iowap-node-base`   | `base/`     | `python:3.11-slim`    | `docker build -t iowap-node-base -f base/Dockerfile .`     |
 # | `iowap-storage`     | `storage/`  | `iowap-node-base`     | `docker build -t iowap-storage -f storage/Dockerfile .`    |
 # | `iowap-server`      | `server/`   | `python:3.11-slim`    | `docker build -t iowap-server -f server/Dockerfile .`      |
+# | `iowap-flow`        | `flow/`     | `python:3.11-slim`    | `docker build -t iowap-flow -f flow/Dockerfile .`          |
 #
 # ## Build order
 #
@@ -21,6 +22,7 @@
 # # 2. Service images
 # docker build -t iowap-storage -f storage/Dockerfile .
 # docker build -t iowap-server -f server/Dockerfile .
+# docker build -t iowap-flow -f flow/Dockerfile .
 # ```
 #
 # ## Quick start (server)
@@ -49,8 +51,9 @@
 #
 # ## Build args
 #
-# Both base and server images have `IOWAP_NODE_REF` / `IOWAP_SERVER_REF`
-# build args to pin a specific Git tag/branch/commit — default is `main`:
+# Both base and service images pin their source repo via build args —
+# `IOWAP_NODE_REF` / `IOWAP_SERVER_REF` / `IOWAP_FLOW_REF` for a specific
+# Git tag/branch/commit — default is `main`:
 #
 # ```bash
 # docker build -t iowap-server:2.3.1 --build-arg IOWAP_SERVER_REF=v2.3.1 -f server/Dockerfile .
@@ -61,4 +64,5 @@
 # - [iowap-server](https://github.com/iowap-org/iowap-server) — relay server code
 # - [iowap-node](https://github.com/iowap-org/iowap-node) — node framework (daemon, CLI, handler runner)
 # - [iowap-storage](https://github.com/iowap-org/iowap-storage) — storage node handlers
+# - [iowap-flow](https://github.com/iowap-org/iowap-flow) — flow runner (plan/fan-out/join orchestrator node)
 # - [iowap-docs](https://github.com/iowap-org/iowap-docs) — full documentation
