@@ -9,6 +9,10 @@ on:
         description: "git ref of iowap-org/iowap-node to bake into the base image (empty = main)"
         required: false
         default: ""
+      iowap_flow_ref:
+        description: "git ref of iowap-org/iowap-flow to bake into the flow image (empty = main)"
+        required: false
+        default: ""
   repository_dispatch:
     types: [rebuild-images]
 
@@ -23,6 +27,7 @@ jobs:
       image_digest: ${{ steps.build.outputs.digest }}
       iowap_node_ref: ${{ steps.refs.outputs.iowap_node_ref }}
       iowap_server_ref: ${{ steps.refs.outputs.iowap_server_ref }}
+      iowap_flow_ref: ${{ steps.refs.outputs.iowap_flow_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -44,8 +49,16 @@ jobs:
           if [ -z "$IOWAP_SERVER_REF" ]; then
             IOWAP_SERVER_REF="main"
           fi
+          IOWAP_FLOW_REF="${{ github.event.inputs.iowap_flow_ref || '' }}"
+          if [ -z "$IOWAP_FLOW_REF" ]; then
+            IOWAP_FLOW_REF="$(jq -r '.client_payload?.iowap_flow_ref // empty' "$GITHUB_EVENT_PATH")"
+          fi
+          if [ -z "$IOWAP_FLOW_REF" ]; then
+            IOWAP_FLOW_REF="main"
+          fi
           echo "iowap_node_ref=$IOWAP_NODE_REF" >> "$GITHUB_OUTPUT"
           echo "iowap_server_ref=$IOWAP_SERVER_REF" >> "$GITHUB_OUTPUT"
+          echo "iowap_flow_ref=$IOWAP_FLOW_REF" >> "$GITHUB_OUTPUT"
 
       - name: Validate resolved refs
         shell: bash
@@ -81,7 +94,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [storage, server]
+        image: [storage, server, flow]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -132,6 +145,20 @@ jobs:
             NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
             IOWAP_SERVER_REF=${{ needs.build-base.outputs.iowap_server_ref }}
 
+      - name: Build and push flow image
+        if: ${{ matrix.image == 'flow' }}
+        id: build_flow
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
+            ghcr.io/iowap-org/iowap-${{ matrix.image }}:${{ needs.build-base.outputs.iowap_flow_ref }}
+          build-args: |
+            IOWAP_FLOW_REF=${{ needs.build-base.outputs.iowap_flow_ref }}
+
       - name: Export storage digest
         if: ${{ matrix.image == 'storage' }}
         shell: bash
@@ -148,6 +175,14 @@ jobs:
           mkdir -p digests
           echo "ghcr.io/iowap-org/iowap-server@${{ steps.build_server.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
+      - name: Export flow digest
+        if: ${{ matrix.image == 'flow' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          echo "ghcr.io/iowap-org/iowap-flow@${{ steps.build_flow.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
       - name: Upload storage digest artifact
         if: ${{ matrix.image == 'storage' }}
         uses: actions/upload-artifact@v7
@@ -157,6 +192,13 @@ jobs:
 
       - name: Upload server digest artifact
         if: ${{ matrix.image == 'server' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt
+
+      - name: Upload flow digest artifact
+        if: ${{ matrix.image == 'flow' }}
         uses: actions/upload-artifact@v7
         with:
           name: image-digests-${{ matrix.image }}
