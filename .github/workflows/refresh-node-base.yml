@@ -60,7 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run build-images.yml --ref main \
+          gh workflow run build-images.yml -R iowap-org/iowap-docker --ref main \
             -f iowap_node_ref=${{ steps.check.outputs.tag }}
           sleep 10
           RUN=$(gh run list -R iowap-org/iowap-docker --workflow=build-images.yml \
