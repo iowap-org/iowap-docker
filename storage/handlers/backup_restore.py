@@ -46,22 +46,28 @@ def main() -> None:
         )
         _emit(
             {
-                "status": "restored",
-                "backup_id": backup_id,
-                "size_bytes": size,
-                "mode": "bridge",
-                "download_url": download_url,
-                "filename": filename,
+                "status": "completed",
+                "result": {
+                    "verb": "restored",
+                    "backup_id": backup_id,
+                    "size_bytes": size,
+                    "mode": "bridge",
+                    "download_url": download_url,
+                    "filename": filename,
+                },
             }
         )
     data = data_file.read_bytes()
     _emit(
         {
-            "status": "restored",
+            "status": "completed",
+            "result": {
+            "verb": "restored",
             "backup_id": backup_id,
             "size_bytes": size,
             "data_base64": base64.b64encode(data).decode(),
             "filename": filename,
+            },
         }
     )
 

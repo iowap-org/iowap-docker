@@ -7,7 +7,7 @@ it. Path-traversal entries and symlinks are rejected.
 
 Result::
 
-    {"status": "extracted", "path": "bundle", "entries": N}
+    {"status": "completed", "result": {"verb": "extracted", "path": "bundle", "entries": N}}
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def main() -> None:
 
     data = archive.read_bytes()
     _extract_tar(data, target)
-    _emit({"status": "extracted", "path": _display(target), "entries": _count_entries(data)})
+    _emit({"status": "completed", "result": {"verb": "extracted", "path": _display(target), "entries": _count_entries(data)}})
 
 
 def _display(target) -> str:

@@ -41,7 +41,7 @@ def main() -> None:
                 continue
             backups.append(manifest)
 
-    _emit({"status": "listed", "count": len(backups), "backups": backups})
+    _emit({"status": "completed", "result": {"verb": "listed", "count": len(backups), "backups": backups}})
 
 
 if __name__ == "__main__":

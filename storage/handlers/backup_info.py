@@ -19,10 +19,10 @@ def main() -> None:
     # ``status`` in the manifest is the backup lifecycle status
     # (active/expired/deleted); the handler result status is "info".
     # Manifest fields win, but the result status is forced to "info".
-    result = {"status": "info"}
+    result = {"verb": "info"}
     result.update(manifest)
-    result["status"] = "info"
-    _emit(result)
+    result["verb"] = "info"
+    _emit({"status": "completed", "result": result})
 
 
 if __name__ == "__main__":

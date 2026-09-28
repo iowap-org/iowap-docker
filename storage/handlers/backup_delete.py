@@ -27,7 +27,7 @@ def main() -> None:
     data_file = backup_dir(backup_id) / "data.bin"
     if data_file.is_file():
         data_file.unlink()
-    _emit({"status": "deleted", "backup_id": backup_id})
+    _emit({"status": "completed", "result": {"verb": "deleted", "backup_id": backup_id}})
 
 
 if __name__ == "__main__":

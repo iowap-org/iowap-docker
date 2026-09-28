@@ -6,7 +6,7 @@ Payload: ``{"path": "..."}``. Directories are removed recursively (like
 
 Result::
 
-    {"status": "deleted"} | {"status": "not_found"}
+    {"status": "completed", "result": {"verb": "deleted"}} | {"status": "completed", "result": {"verb": "not_found"}}
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ def main() -> None:
         _fail("path traversal attempt")
 
     if not target.exists():
-        _emit({"status": "not_found"})
+        _emit({"status": "completed", "result": {"verb": "not_found"}})
 
     try:
         if target.is_dir():
@@ -39,7 +39,7 @@ def main() -> None:
     except OSError as exc:
         _fail(f"delete failed: {exc}")
 
-    _emit({"status": "deleted"})
+    _emit({"status": "completed", "result": {"verb": "deleted"}})
 
 
 if __name__ == "__main__":

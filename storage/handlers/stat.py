@@ -5,7 +5,7 @@ Payload: ``{"path": "..."}``. Works for both files and directories.
 
 Result::
 
-    {"status": "stat", "path": "...", "size_bytes": N,
+    {"status": "completed", "result": {"verb": "stat", "path": "...", "size_bytes": N,
      "modified": "ISO-8601", "is_dir": bool}
 """
 
@@ -39,11 +39,14 @@ def main() -> None:
     modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
     _emit(
         {
-            "status": "stat",
-            "path": rel,
-            "size_bytes": stat.st_size,
-            "modified": modified,
-            "is_dir": target.is_dir(),
+            "status": "completed",
+            "result": {
+                "verb": "stat",
+                "path": rel,
+                "size_bytes": stat.st_size,
+                "modified": modified,
+                "is_dir": target.is_dir(),
+            },
         }
     )
 

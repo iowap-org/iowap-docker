@@ -8,8 +8,8 @@ usage ratio is at or above it so the scheduler can trigger a cleanup task.
 
 Result::
 
-    {"status": "quota", "total_bytes": N, "used_bytes": N, "free_bytes": N,
-     "usage_ratio": 0.xx, "threshold": 0.9, "threshold_exceeded": bool}
+    {"status": "completed", "result": {"verb": "quota", "total_bytes": N, "used_bytes": N, "free_bytes": N,
+     "usage_ratio": 0.xx, "threshold": 0.9, "threshold_exceeded": bool}}
 """
 
 from __future__ import annotations
@@ -36,13 +36,16 @@ def main() -> None:
     usage_ratio = usage.used / usage.total if usage.total else 0.0
     _emit(
         {
-            "status": "quota",
-            "total_bytes": usage.total,
-            "used_bytes": usage.used,
-            "free_bytes": usage.free,
-            "usage_ratio": round(usage_ratio, 4),
-            "threshold": threshold,
-            "threshold_exceeded": usage_ratio >= threshold,
+            "status": "completed",
+            "result": {
+                "verb": "quota",
+                "total_bytes": usage.total,
+                "used_bytes": usage.used,
+                "free_bytes": usage.free,
+                "usage_ratio": round(usage_ratio, 4),
+                "threshold": threshold,
+                "threshold_exceeded": usage_ratio >= threshold,
+            },
         }
     )
 

@@ -7,8 +7,8 @@ storage base). The prefix is itself run through :func:`_safe_path` so a
 
 Result::
 
-    {"status": "listed", "count": N,
-     "files": [{"path": "...", "size_bytes": N, "modified": "ISO-8601"}]}
+    {"status": "completed", "result": {"verb": "listed", "count": N,
+     "files": [{"path": "...", "size_bytes": N, "modified": "ISO-8601"}]}}
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ def main() -> None:
         _fail("path traversal attempt")
 
     if not base.exists():
-        _emit({"status": "listed", "count": 0, "files": []})
+        _emit({"status": "completed", "result": {"verb": "listed", "count": 0, "files": []}})
 
     storage_root = STORAGE_PATH.resolve()
     files = []
@@ -51,7 +51,7 @@ def main() -> None:
                 }
             )
 
-    _emit({"status": "listed", "count": len(files), "files": files})
+    _emit({"status": "completed", "result": {"verb": "listed", "count": len(files), "files": files}})
 
 
 if __name__ == "__main__":

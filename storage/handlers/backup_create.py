@@ -13,7 +13,7 @@ backup (full or incremental) of the same source.
 
 Result::
 
-    {"status": "created", "backup_id": "bk_...", "path": "backups/bk_...",
+    {"verb": "created", "backup_id": "bk_...", "path": "backups/bk_...",
      "size_bytes": N, "type": "full"}
 """
 
@@ -82,12 +82,15 @@ def main() -> None:
         write_manifest(backup_id, manifest)
         _emit(
             {
-                "status": "created",
-                "backup_id": backup_id,
-                "path": f"backups/{backup_id}",
-                "type": btype,
-                "mode": "bridge",
-                "upload_url": upload_url,
+                "status": "completed",
+                "result": {
+                    "verb": "created",
+                    "backup_id": backup_id,
+                    "path": f"backups/{backup_id}",
+                    "type": btype,
+                    "mode": "bridge",
+                    "upload_url": upload_url,
+                },
             }
         )
     elif "data_base64" in payload:
@@ -106,11 +109,14 @@ def main() -> None:
     write_manifest(backup_id, manifest)
     _emit(
         {
-            "status": "created",
-            "backup_id": backup_id,
-            "path": f"backups/{backup_id}",
-            "size_bytes": manifest["size_bytes"],
-            "type": btype,
+            "status": "completed",
+            "result": {
+                "verb": "created",
+                "backup_id": backup_id,
+                "path": f"backups/{backup_id}",
+                "size_bytes": manifest["size_bytes"],
+                "type": btype,
+            },
         }
     )
 

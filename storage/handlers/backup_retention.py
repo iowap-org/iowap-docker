@@ -122,7 +122,7 @@ def main() -> None:
     for backup_id in to_delete:
         _mark_deleted(backup_id)
 
-    _emit({"status": "applied", "source": source, "deleted": to_delete, "count": len(to_delete)})
+    _emit({"status": "completed", "result": {"verb": "applied", "source": source, "deleted": to_delete, "count": len(to_delete)}})
 
 
 if __name__ == "__main__":

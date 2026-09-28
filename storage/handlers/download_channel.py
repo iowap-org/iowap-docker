@@ -14,8 +14,9 @@ Payload::
 
 Result::
 
-    {"status": "open", "download_url": "<relay>/.../node-routes/<node>/download/<channel_id>",
-     "channel_id": "ch_...", "ttl": 3600}
+    {"status": "completed", "result": {"verb": "open",
+     "download_url": "<relay>/.../node-routes/<node>/download/<channel_id>",
+     "channel_id": "ch_...", "ttl": 3600}}
 """
 
 from __future__ import annotations
@@ -55,11 +56,14 @@ def main() -> None:
     download_url = f"{base_url.rstrip('/')}/relay/v2/dashboard/api/node-routes/{node_id}{path}"
     _emit(
         {
-            "status": "open",
-            "download_url": download_url,
-            "channel_id": channel_id,
-            "ttl": _DEFAULT_TTL,
-            "expires_at": result.get("expires_at"),
+            "status": "completed",
+            "result": {
+                "verb": "open",
+                "download_url": download_url,
+                "channel_id": channel_id,
+                "ttl": _DEFAULT_TTL,
+                "expires_at": result.get("expires_at"),
+            },
         }
     )
 

@@ -8,7 +8,7 @@ task complete path. Large files should use the bridge download_channel
 
 Result::
 
-    {"status": "fetched", "path": "...", "size_bytes": N, "data_base64": "..."}
+    {"status": "completed", "result": {"verb": "fetched", "path": "...", "size_bytes": N, "data_base64": "..."}}
 
 A missing file fails the stage with ``{"error": "not found"}``.
 """
@@ -42,10 +42,13 @@ def main() -> None:
         rel = str(target)
     _emit(
         {
-            "status": "fetched",
-            "path": rel,
-            "size_bytes": len(data),
-            "data_base64": base64.b64encode(data).decode("ascii"),
+            "status": "completed",
+            "result": {
+                "verb": "fetched",
+                "path": rel,
+                "size_bytes": len(data),
+                "data_base64": base64.b64encode(data).decode("ascii"),
+            },
         }
     )
 

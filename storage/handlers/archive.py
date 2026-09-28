@@ -7,7 +7,7 @@ paths are run through :func:`_safe_path`.
 
 Result::
 
-    {"status": "archived", "path": "proj.tar.gz", "size_bytes": N, "entries": N}
+    {"status": "completed", "result": {"verb": "archived", "path": "proj.tar.gz", "size_bytes": N, "entries": N}}
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ def main() -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
     entries = _pack_tar(src, dst)
     size = dst.stat().st_size
-    _emit({"status": "archived", "path": _display(dst), "size_bytes": size, "entries": entries})
+    _emit({"status": "completed", "result": {"verb": "archived", "path": _display(dst), "size_bytes": size, "entries": entries}})
 
 
 def _pack_tar(src, dst) -> int:

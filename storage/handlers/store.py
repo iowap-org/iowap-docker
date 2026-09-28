@@ -11,7 +11,7 @@ Two modes selected by the payload:
 
 Result::
 
-    {"status": "stored", "path": "...", "size_bytes": N}
+    {"status": "completed", "result": {"verb": "stored", "path": "...", "size_bytes": N}}
 
 Every caller-supplied path is run through :func:`_safe_path`; a traversal
 attempt fails the stage with ``{"error": "path traversal attempt"}``.
@@ -59,10 +59,10 @@ def main() -> None:
             _fail(f"invalid data_base64: {exc}")
         if action == "extract":
             _extract_tar(data, target)
-            _emit({"status": "stored", "path": _display(target), "action": "extract"})
+            _emit({"status": "completed", "result": {"verb": "stored", "path": _display(target), "action": "extract"}})
         else:
             target.write_bytes(data)
-            _emit({"status": "stored", "path": _display(target), "size_bytes": len(data)})
+            _emit({"status": "completed", "result": {"verb": "stored", "path": _display(target), "size_bytes": len(data)}})
 
     if "artifact_id" in payload:
         # Stream mode — download an artifact chunkwise from the relay.
@@ -77,10 +77,10 @@ def main() -> None:
             _stream_artifact(artifact_id, tmp, base_url, token_file)
             _extract_tar(tmp.read_bytes(), target)
             tmp.unlink(missing_ok=True)
-            _emit({"status": "stored", "path": _display(target), "action": "extract"})
+            _emit({"status": "completed", "result": {"verb": "stored", "path": _display(target), "action": "extract"}})
         else:
             size = _stream_artifact(artifact_id, target, base_url, token_file)
-            _emit({"status": "stored", "path": _display(target), "size_bytes": size})
+            _emit({"status": "completed", "result": {"verb": "stored", "path": _display(target), "size_bytes": size}})
 
     _fail("payload must contain either data_base64 or artifact_id")
 

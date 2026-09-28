@@ -14,8 +14,9 @@ Payload::
 
 Result::
 
-    {"status": "open", "upload_url": "<relay>/.../node-routes/<node>/upload/<channel_id>",
-     "channel_id": "ch_...", "ttl": 3600}
+    {"status": "completed", "result": {"verb": "open",
+     "upload_url": "<relay>/.../node-routes/<node>/upload/<channel_id>",
+     "channel_id": "ch_...", "ttl": 3600}}
 
 The handler uses :class:`RelayClient.register_temp_route`. It reads the
 relay base URL + token from the env vars handler_runner sets
@@ -71,11 +72,14 @@ def main() -> None:
     upload_url = f"{base_url.rstrip('/')}/relay/v2/dashboard/api/node-routes/{node_id}{path}"
     _emit(
         {
-            "status": "open",
-            "upload_url": upload_url,
-            "channel_id": channel_id,
-            "ttl": _DEFAULT_TTL,
-            "expires_at": result.get("expires_at"),
+            "status": "completed",
+            "result": {
+                "verb": "open",
+                "upload_url": upload_url,
+                "channel_id": channel_id,
+                "ttl": _DEFAULT_TTL,
+                "expires_at": result.get("expires_at"),
+            },
         }
     )
 

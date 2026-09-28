@@ -6,7 +6,7 @@ Payload: ``{"from": "...", "to": "..."}``. Both paths are run through
 
 Result::
 
-    {"status": "moved", "from": "...", "to": "..."}
+    {"status": "completed", "result": {"verb": "moved", "from": "...", "to": "..."}}
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def main() -> None:
     except OSError as exc:
         _fail(f"move failed: {exc}")
 
-    _emit({"status": "moved", "from": _display(src), "to": _display(dst)})
+    _emit({"status": "completed", "result": {"verb": "moved", "from": _display(src), "to": _display(dst)}})
 
 
 if __name__ == "__main__":
