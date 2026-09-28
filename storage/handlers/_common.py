@@ -75,7 +75,18 @@ def _safe_path(target_path: str | None, base: Path = STORAGE_PATH) -> Path:
 
 
 def _read_payload() -> dict[str, Any]:
-    """Read the stage payload JSON from stdin and return it as a dict."""
+    """Read the stage payload JSON from stdin and return it as a dict.
+
+    T-005d: handler_runner >= 2.3.13 sends the strict Request Envelope
+    ``{"task_id": ..., "capability": ..., "input": {...}}`` (mirror is
+    off by default). Strip it here — the single shared choke point all
+    storage/backup handlers read payloads through — so handlers keep
+    consuming flat keys. Discriminator (same as flow_node.runner's
+    _envelope_payload): task_id+capability present AND input is a dict.
+    Flat stdin (pre-T-005b runners) and mirrored stdin (2.3.12, payload
+    keys at top level, contract keys last) pass through unchanged, so
+    the strip is idempotent across all three daemon generations.
+    """
     raw = sys.stdin.read()
     if not raw.strip():
         return {}
@@ -85,6 +96,12 @@ def _read_payload() -> dict[str, Any]:
         _fail(f"invalid JSON payload: {exc.msg}")
     if not isinstance(data, dict):
         _fail("payload must be a JSON object")
+    if (
+        data.get("task_id") is not None
+        and data.get("capability") is not None
+        and isinstance(data.get("input"), dict)
+    ):
+        return data["input"]
     return data
 
 
