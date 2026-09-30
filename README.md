@@ -66,3 +66,7 @@
 # - [iowap-storage](https://github.com/iowap-org/iowap-storage) — storage node handlers
 # - [iowap-flow](https://github.com/iowap-org/iowap-flow) — flow runner (plan/fan-out/join orchestrator node)
 # - [iowap-docs](https://github.com/iowap-org/iowap-docs) — full documentation
+
+## License
+
+MIT — see [LICENSE](LICENSE).
