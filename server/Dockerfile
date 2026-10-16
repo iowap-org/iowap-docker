@@ -19,9 +19,11 @@ WORKDIR /app
 # Install iowap-server from GitHub with optional postgres support.
 # Override IOWAP_SERVER_REF to pin a specific tag/branch/commit.
 ARG IOWAP_SERVER_REF=main
-RUN pip install --no-cache-dir \
-    "iowap-server[postgres] @ git+https://github.com/iowap-org/iowap-server.git@${IOWAP_SERVER_REF}" \
-    "psycopg[binary]>=3.1"
+RUN git clone --no-recurse-submodules https://github.com/iowap-org/iowap-server.git /tmp/iowap-server \
+    && git -C /tmp/iowap-server checkout "${IOWAP_SERVER_REF}" \
+    && git -C /tmp/iowap-server submodule update --init --remote -- docs \
+    && pip install --no-cache-dir "/tmp/iowap-server[postgres]" "psycopg[binary]>=3.1" \
+    && rm -rf /tmp/iowap-server
 
 # --- appuser ---------------------------------------------------------------
 # Non-root runtime user. PUID/PGID are overridable so a NAS operator can map
