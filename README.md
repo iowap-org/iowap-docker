@@ -4,8 +4,8 @@ Central repository for all IOWAP Docker images. Each subdirectory builds one
 image; the build context is always the repo root, so `COPY` paths mirror the
 directory structure.
 
-[IOWAP](https://github.com/iowap-org) (Infrastructure · Offloading · Workload
-Assignment Platform) is a self-hosted task fleet: a relay server assigns work
+[IOWAP](https://github.com/iowap-org) (Inter-Node Offload · Workload
+Advertisement · Protocol) is a self-hosted task fleet: a relay server assigns work
 to registered nodes over their capabilities.
 
 ## Images
