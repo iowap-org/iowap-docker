@@ -1,0 +1,74 @@
+# IOWAP — full stack compose: relay server + storage node.
+#
+# Builds both images from the repo and starts them on the same Docker network.
+# The storage node auto-registers as "pending" via the server's
+# /relay/v2/auth/register endpoint; you can approve it through the dashboard
+# or the admin API (see integration-test.sh for the API flow).
+#
+# Prerequisite: the storage image builds FROM iowap-node-base, which must be
+# present locally first (same two-step build as storage/docker-compose.yml):
+#
+#   docker build -t iowap-node-base -f base/Dockerfile .
+#
+# Usage:
+#   docker compose -f docker-compose.yml up -d
+#   ./integration-test.sh          # register-admin → approve → verify
+
+name: iowap-fullstack
+
+services:
+  # ── IOWAP relay server (port 8788) ──────────────────────────────────────
+  relay:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: iowap-server:local
+    container_name: iowap-server
+    restart: unless-stopped
+    ports:
+      - "8788:8788"
+    environment:
+      RELAY_MASTER_SEED: dev-master-seed-please-change-in-production
+      RELAY_SESSION_SECRET: dev-session-secret-please-change-in-production
+      RELAY_SESSION_COOKIE_SECURE: "false"
+    volumes:
+      - relay-data:/app/.relay
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - iowap-net
+
+  # ── IOWAP storage service node ──────────────────────────────────────────
+  storage-node:
+    build:
+      context: .
+      dockerfile: storage/Dockerfile
+    image: iowap-storage:local
+    container_name: iowap-storage
+    restart: unless-stopped
+    depends_on:
+      relay:
+        condition: service_healthy
+    environment:
+      RELAY_URL: http://relay:8788
+      NODE_NAME: storage-node
+      NODE_ROLE: service
+      NODE_ENDPOINT: http://storage-node:8791
+    volumes:
+      - storage-data:/storage
+      - storage-node-state:/home/appuser/.relay
+    networks:
+      - iowap-net
+
+volumes:
+  relay-data:
+  storage-data:
+  storage-node-state:
+
+networks:
+  iowap-net:
+    driver: bridge
