@@ -24,11 +24,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini git \
 WORKDIR /app
 
 # Install iowap-flow from GitHub. The package's pyproject.toml pins its
-# iowap-node dependency, so the whole node stack comes with it.
-# Override IOWAP_FLOW_REF to pin a specific tag/branch/commit.
+# iowap-node dependency (>=2.3.20), so the whole node stack comes with it;
+# the explicit iowap-node>=2.3.42 floor guarantees the rebranded binaries
+# (iowap-cli/iowap-daemon) land in the image. Override IOWAP_FLOW_REF to
+# pin a specific tag/branch/commit.
 ARG IOWAP_FLOW_REF=main
 RUN pip install --no-cache-dir \
-    "iowap-flow @ git+https://github.com/iowap-org/iowap-flow.git@${IOWAP_FLOW_REF}"
+    "iowap-flow @ git+https://github.com/iowap-org/iowap-flow.git@${IOWAP_FLOW_REF}" \
+    "iowap-node>=2.3.42"
 
 # Clone the flow repo's runtime assets (profile, handlers, entrypoint) —
 # pip's git+ checkout does not leave them in a usable location. Profile
@@ -62,4 +65,4 @@ ENV PYTHONUNBUFFERED=1
 USER root
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["node-daemon"]
+CMD ["iowap-daemon"]

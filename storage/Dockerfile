@@ -26,7 +26,7 @@ COPY --chown=appuser:appuser storage/handlers/ /app/handlers/
 COPY --chown=appuser:appuser storage/bridge_server.py /app/bridge_server.py
 # The retention watchdog applies retention policies periodically.
 COPY --chown=appuser:appuser storage/retention_watchdog.py /app/retention_watchdog.py
-# Storage entrypoint launches bridge server + watchdog, then execs node-daemon.
+# Storage entrypoint launches bridge server + watchdog, then execs iowap-daemon.
 COPY --chown=appuser:appuser storage/docker-entrypoint-storage.sh /app/docker-entrypoint-storage.sh
 
 ENV NODE_NAME=storage-node \
@@ -42,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD ["python3", "/app/healthcheck.py"]
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint-storage.sh"]
-CMD ["node-daemon"]
+CMD ["iowap-daemon"]

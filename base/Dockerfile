@@ -1,29 +1,31 @@
 # syntax=docker/dockerfile:1
 # IOWAP — Node base image.
 #
-# A reusable base image carrying the installed node stack (node-cli,
-# node-daemon, relay_client, node_config, handler_runner) installed from
+# A reusable base image carrying the installed node stack (iowap-cli,
+# iowap-daemon, relay_client, node_config, handler_runner) installed from
 # the iowap-node package on GitHub. Concrete service images (storage/,
 # etc.) build ``FROM iowap-node-base`` and only add their capability
 # profile + handlers — no Python install step.
 #
 # The entrypoint translates environment variables (RELAY_URL, NODE_NAME,
 # NODE_PROFILE) into ``relay_config.json`` + ``node.yaml`` and registers
-# the node on first start; then execs ``node-daemon`` (SSE, event-driven).
+# the node on first start; then execs ``iowap-daemon`` (SSE, event-driven).
 
-ARG IOWAP_NODE_REF=main
+ARG IOWAP_NODE_REF=wheel-v2.3.42
 
 FROM python:3.11-slim
 
-# tini as PID 1 so signals (SIGTERM/SIGINT) reach node-daemon cleanly on stop.
+# tini as PID 1 so signals (SIGTERM/SIGINT) reach iowap-daemon cleanly on stop.
 RUN apt-get update && apt-get install -y --no-install-recommends tini git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Install the node stack from the iowap-node GitHub package.
-# Override IOWAP_NODE_REF to pin a specific tag/branch/commit.
-ARG IOWAP_NODE_REF=main
+# Default pin: wheel-v2.3.42 — the rebrand release that ships the
+# iowap-cli/iowap-daemon entry points (legacy node-cli/node-daemon remain
+# as shims). Override IOWAP_NODE_REF to pin a specific tag/branch/commit.
+ARG IOWAP_NODE_REF=wheel-v2.3.42
 RUN pip install --no-cache-dir \
     "iowap-node @ git+https://github.com/iowap-org/iowap-node.git@${IOWAP_NODE_REF}"
 
@@ -44,7 +46,7 @@ ENV PYTHONUNBUFFERED=1
 USER appuser
 
 # Entrypoint translates env → relay_config.json + node.yaml, registers the
-# node on first start, then execs node-daemon.
+# node on first start, then execs iowap-daemon.
 COPY --chown=appuser:appuser base/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 # Healthcheck script (reads the daemon status file).
@@ -55,4 +57,4 @@ ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint.sh"]
 # The base image does not listen on any port — the node only connects to the
 # relay via SSE + HTTP. Any bridge-route upstream is served by the concrete
 # service image derived from this base (e.g. storage/).
-CMD ["node-daemon"]
+CMD ["iowap-daemon"]

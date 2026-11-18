@@ -12,7 +12,7 @@ are read from ``~/.relay/retention.yaml`` (or ``RELAY_RETENTION_CONFIG``):
 
 The watchdog reuses the same policy logic as the ``backup.retention``
 handler by importing it. It runs as a background process alongside the
-node-daemon (started by the storage entrypoint).
+iowap-daemon (started by the storage entrypoint).
 """
 
 from __future__ import annotations

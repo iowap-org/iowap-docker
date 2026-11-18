@@ -3,7 +3,7 @@
 
 Reads the daemon's status file (``~/.relay/worker_status.json``) and
 exits 0 when the daemon is running and recently heartbeatet, 1 otherwise.
-The status file is written by ``node-daemon`` on every heartbeat.
+The status file is written by ``iowap-daemon`` on every heartbeat.
 
 We do NOT use a TCP probe — the node does not listen on any port. The
 status file is the single source of truth for "is the daemon alive?".

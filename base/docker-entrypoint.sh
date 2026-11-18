@@ -3,7 +3,7 @@
 #
 # Translates environment variables into the files the node stack reads from
 # ~/.relay (relay_config.json, node.yaml, iowap-agent.json|ai-relay-agent.json, token) and
-# then execs the node-daemon (SSE, event-driven).
+# then execs the iowap-daemon (SSE, event-driven).
 #
 # Environment variables (all optional unless noted):
 #   RELAY_URL          — relay base URL, e.g. https://relay.example.com (REQUIRED)

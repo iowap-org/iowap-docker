@@ -1,7 +1,7 @@
 """Storage-node bridge server (T-128).
 
 A small Starlette HTTP server the storage node runs alongside the
-node-daemon. The relay proxies upload/download channel requests to this
+iowap-daemon. The relay proxies upload/download channel requests to this
 server through a temporary bridge route (T-124). The server's only job:
 
 * accept POST /upload/{channel_id}  — stream the request body onto the

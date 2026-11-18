@@ -3,7 +3,7 @@
 #
 # Starts the bridge server (T-128) in the background, then chains into
 # the base image's docker-entrypoint.sh which sets up relay_config.json
-# + node.yaml, registers the node on first start, and execs node-daemon
+# + node.yaml, registers the node on first start, and execs iowap-daemon
 # (SSE, event-driven). tini (PID 1) reaps the background bridge process.
 
 set -euo pipefail
@@ -18,6 +18,6 @@ python3 /app/bridge_server.py &
 echo "[storage-entrypoint] starting retention watchdog"
 python3 /app/retention_watchdog.py &
 
-# Hand off to the base entrypoint, which execs node-daemon as PID 1's
+# Hand off to the base entrypoint, which execs iowap-daemon as PID 1's
 # foreground child (tini reaps the bridge background process).
 exec /app/docker-entrypoint.sh "$@"
