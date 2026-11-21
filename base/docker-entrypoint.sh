@@ -42,12 +42,17 @@ NODE_YAML="${RELAY_DIR}/node.yaml"
 mkdir -p "${RELAY_DIR}"
 
 # --- RELAY_URL: explicit env, else mDNS discovery -------------------------
+# T-011 blank-start: if RELAY_URL is unset and mDNS finds nothing, the daemon
+# still starts and idles until configuration exists (register via
+# `iowap-cli node register` inside the container). Missing RELAY_URL is NOT
+# fatal anymore — the pre-T-011 hard exit crashed container loops.
+BLANK_START=0
 if [ -z "${RELAY_URL:-}" ]; then
     echo "[entrypoint] RELAY_URL not set — attempting mDNS discovery..."
     DISCOVERED=$(python3 - <<'PY'
 import sys
 try:
-    from iowap_node.relay_client import _discover_relay_mdns
+    from nodes.common.relay_client import _discover_relay_mdns
     url = _discover_relay_mdns(timeout=3.0)
     if url:
         print(url)
@@ -60,8 +65,8 @@ PY
         export RELAY_URL
         echo "[entrypoint] mDNS discovered relay at ${RELAY_URL}"
     else
-        echo "[entrypoint] ERROR: RELAY_URL is required and mDNS discovery found no relay." >&2
-        exit 1
+        echo "[entrypoint] RELAY_URL not set and mDNS discovery found no relay — blank-start idle (T-011): daemon waits for configuration."
+        BLANK_START=1
     fi
 fi
 
@@ -70,6 +75,10 @@ NODE_NAME="${NODE_NAME:-$(hostname 2>/dev/null || echo node)}"
 NODE_ROLE="${NODE_ROLE:-worker}"
 
 # --- relay_config.json ----------------------------------------------------
+if [ "${BLANK_START}" -eq 1 ]; then
+    echo "[entrypoint] blank-start: skipping relay_config.json + registration until configured."
+fi
+if [ "${BLANK_START}" -eq 0 ]; then
 cat > "${CONFIG_JSON}" <<EOF
 {
   "base_url": "${BASE_URL}",
@@ -84,6 +93,7 @@ cat > "${CONFIG_JSON}" <<EOF
 }
 EOF
 echo "[entrypoint] relay_config.json written (base_url=${BASE_URL})"
+fi
 
 # --- node.yaml -------------------------------------------------------------
 if [ ! -f "${NODE_YAML}" ]; then
@@ -112,7 +122,9 @@ if [ -n "${NODE_PROFILE:-}" ]; then
 fi
 
 # --- first-start registration ---------------------------------------------
-if [ ! -f "${META_JSON}" ]; then
+if [ "${BLANK_START}" -eq 1 ]; then
+    echo "[entrypoint] blank-start: skipping registration (no relay configured yet)."
+elif [ ! -f "${META_JSON}" ]; then
     echo "[entrypoint] no metadata found — registering node '${NODE_NAME}' with relay"
 
     REGISTER_PAYLOAD=$(python3 - <<'PY'
