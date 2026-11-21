@@ -70,7 +70,7 @@ PY
     fi
 fi
 
-BASE_URL="${RELAY_URL%/}"
+BASE_URL="${RELAY_URL:-}"; BASE_URL="${BASE_URL%/}"
 NODE_NAME="${NODE_NAME:-$(hostname 2>/dev/null || echo node)}"
 NODE_ROLE="${NODE_ROLE:-worker}"
 
