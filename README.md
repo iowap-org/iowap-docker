@@ -69,6 +69,55 @@ restart.
 > an update. Pull a new image and recreate the container (state volume
 > untouched); identity is preserved, no re-approval needed.
 
+### Universal node
+
+`docker-compose.universal-node.yml` runs the plain node image
+(`iowap-node-base` — the same image every other IOWAP node is built from, no
+fork) as a self-contained **universal node**: it starts blank (idle, no relay
+traffic) and gains two optional integrations — a bridge to host-side
+capability providers and an HTTP MCP endpoint for agents on the same host.
+
+Manual use (without any daemon):
+
+```bash
+# Defaults: workspace under ./universal-node-workspace, MCP on 127.0.0.1:7781
+docker compose -f docker-compose.universal-node.yml up -d
+
+# Or point the workspace at your own host directory:
+IOWAP_WORKSPACE_DIR=/srv/iowap/workspace \
+  docker compose -f docker-compose.universal-node.yml up -d
+```
+
+The container starts idle until it is registered against a relay (e.g. via
+`docker exec iowap-universal-node iowap-cli node register <relay-host> --name <name>`).
+Registration state and `node.yaml` live in the `universal-node-state` volume
+(mounted at `/home/appuser/.relay`), so the node survives restarts without
+re-registering.
+
+The bridge/MCP tokens are **optional** — the node runs fine without them.
+In the managed flow, the bridge daemon creates the container and injects both
+tokens as environment variables at bootstrap; this file only defines the
+interface so the daemon does not have to invent it. The MCP endpoint is
+published on `127.0.0.1:7781` (loopback-only on purpose: reachable from
+agents on the same host, never from the network) and requires the MCP bearer
+once set.
+
+How the daemon uses it: the bridge daemon does not build containers itself —
+it executes exactly this profile through the Docker Engine API (same image,
+same port mappings, same volumes) and injects the two tokens at container
+creation. Think of this file as the blueprint for that flow.
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `IOWAP_BRIDGE_TOKEN` | *(unset)* | Optional. Bearer token the node presents to the bridge daemon's manifest/exec endpoints (`bridge.token` in `node.yaml`). Injected by the bridge daemon at bootstrap; blank start works without it. |
+| `IOWAP_MCP_BEARER` | *(unset)* | Optional. Bearer token agents must present when calling the node's HTTP MCP endpoint. Injected by the bridge daemon at bootstrap; blank start works without it. |
+| `IOWAP_WORKSPACE_DIR` | `./universal-node-workspace` | Host directory shared with the bridge daemon for artifact exchange (mounted at `/workspace` in the container). Use the same root the daemon uses. |
+
+On Linux hosts, `host.docker.internal` is mapped to the host gateway via
+`extra_hosts` (the bridge URL configured in `node.yaml` relies on it). Docker
+Desktop (Windows/macOS) provides this mapping natively; the entry is harmless
+there.
+
 ## Build args
 
 Every image pins its source repo via a build arg — a git tag, branch or
