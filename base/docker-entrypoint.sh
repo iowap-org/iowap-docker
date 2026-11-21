@@ -6,7 +6,7 @@
 # then execs the iowap-daemon (SSE, event-driven).
 #
 # Environment variables (all optional unless noted):
-#   RELAY_URL          — relay base URL, e.g. https://relay.example.com (REQUIRED)
+#   RELAY_URL          — relay base URL, e.g. https://relay.example.com (optional since T-011 blank-start — daemon idles until configured)
 #   NODE_NAME          — human-friendly node name (default: container hostname)
 #   NODE_PROFILE       — profile name to publish from /app/profiles/ (optional)
 #   NODE_ROLE          — node role: "worker" (default) or "service"
