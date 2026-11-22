@@ -207,6 +207,15 @@ fi
 # the PID file (~/.relay/mcp.pid) enables later enable/disable from the node
 # dashboard (T-021).
 MCP_PID_FILE="${RELAY_DIR}/mcp.pid"
+MCP_BEARER_FILE="${RELAY_DIR}/mcp_bearer"
+# T-021/T-016d: a manual `docker compose up` carries no IOWAP_MCP_BEARER env —
+# restore it from the dashboard's bearer file so the endpoint survives
+# container recreates that were not done via the daemon bootstrap.
+if [ -z "${IOWAP_MCP_BEARER:-}" ] && [ -s "${MCP_BEARER_FILE}" ]; then
+    IOWAP_MCP_BEARER="$(tr -d '[:space:]' < "${MCP_BEARER_FILE}")"
+    export IOWAP_MCP_BEARER
+    echo "[entrypoint] IOWAP_MCP_BEARER restored from ${MCP_BEARER_FILE}"
+fi
 if [ -n "${IOWAP_MCP_BEARER:-}" ]; then
     echo "[entrypoint] starting iowap-mcp --http on port 7781 (bearer set)"
     # --host 0.0.0.0: the process defaults to container-internal loopback, but
