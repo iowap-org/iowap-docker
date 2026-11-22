@@ -42,6 +42,10 @@ services:
       # HTTP MCP endpoint — loopback-only on purpose: reachable from agents
       # on the same host, never from the network.
       - "127.0.0.1:7781:7781"
+      # Onboarding/setup UI (T-017): served by the node itself while it is
+      # unconfigured (blank-start). Registration form (node name + relay
+      # URL, mDNS-prefilled), then status + MCP bearer/snippets. Loopback-only.
+      - "127.0.0.1:7783:7783"
     volumes:
       # Workspace shared with the host-side bridge daemon: the daemon writes
       # artifacts here, the node uploads them to the relay. Point
