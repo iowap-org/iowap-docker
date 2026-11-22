@@ -21,13 +21,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends tini git \
 
 WORKDIR /app
 
-# Install the node stack from the iowap-node GitHub package.
+# Install the node stack from the iowap-node GitHub package, plus the
+# standalone HTTP-MCP client (T-020): the entrypoint starts ``iowap-mcp
+# --http`` on port 7781 when IOWAP_MCP_BEARER is set.
 # Default pin: wheel-v2.3.42 — the rebrand release that ships the
 # iowap-cli/iowap-daemon entry points (legacy node-cli/node-daemon remain
 # as shims). Override IOWAP_NODE_REF to pin a specific tag/branch/commit.
 ARG IOWAP_NODE_REF=wheel-v2.3.42
 RUN pip install --no-cache-dir \
-    "iowap-node @ git+https://github.com/iowap-org/iowap-node.git@${IOWAP_NODE_REF}"
+    "iowap-node @ git+https://github.com/iowap-org/iowap-node.git@${IOWAP_NODE_REF}" \
+    "iowap-client-mcp[mcp]>=0.1.8"
 
 # --- appuser ---------------------------------------------------------------
 # Non-root runtime user. PUID/PGID are overridable so a NAS operator can map

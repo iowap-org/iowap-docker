@@ -118,6 +118,22 @@ On Linux hosts, `host.docker.internal` is mapped to the host gateway via
 Desktop (Windows/macOS) provides this mapping natively; the entry is harmless
 there.
 
+### Processes in the universal-node container
+
+The base image entrypoint manages up to two processes:
+
+| Process | Port | Purpose |
+| ------- | ---- | ------- |
+| `iowap-daemon` (PID 1 child, `exec`'d) | `7783` (loopback) | Node UI + status, SSE/HTTP connection to the relay, heartbeat |
+| `iowap-mcp --http` (background, supervisor) | `7781` (loopback) | HTTP MCP endpoint for agents on the same host — **only started when `IOWAP_MCP_BEARER` is set**; otherwise the entrypoint logs `MCP disabled (no bearer)` and port 7781 stays closed. Serves Streamable HTTP at `/mcp` with the bearer as static auth (fail closed). |
+
+The MCP server's PID is written to `~/.relay/mcp.pid` so the node dashboard
+can later enable/disable it (T-021). Both processes log to the container's
+stdout/stderr. `iowap-client-mcp[mcp]` (>= 0.1.8, PyPI) provides the
+`iowap-mcp` entry point; the HTTP transport binds `0.0.0.0` inside the
+container because the published port reaches the container's eth0 — the
+host-side publish (`127.0.0.1:7781`) keeps it loopback-only from outside.
+
 ## Build args
 
 Every image pins its source repo via a build arg — a git tag, branch or
