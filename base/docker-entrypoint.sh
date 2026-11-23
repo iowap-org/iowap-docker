@@ -211,10 +211,16 @@ MCP_BEARER_FILE="${RELAY_DIR}/mcp_bearer"
 # T-021/T-016d: a manual `docker compose up` carries no IOWAP_MCP_BEARER env —
 # restore it from the dashboard's bearer file so the endpoint survives
 # container recreates that were not done via the daemon bootstrap.
-if [ -z "${IOWAP_MCP_BEARER:-}" ] && [ -s "${MCP_BEARER_FILE}" ]; then
+# T-016e: the FILE is the single source of truth for the running MCP
+# process — the dashboard writes and renders it, so a rotated file must
+# win over a stale container env (invalid_token desync).
+if [ -s "${MCP_BEARER_FILE}" ]; then
     IOWAP_MCP_BEARER="$(tr -d '[:space:]' < "${MCP_BEARER_FILE}")"
     export IOWAP_MCP_BEARER
-    echo "[entrypoint] IOWAP_MCP_BEARER restored from ${MCP_BEARER_FILE}"
+    echo "[entrypoint] IOWAP_MCP_BEARER from ${MCP_BEARER_FILE} (file wins)"
+elif [ -n "${IOWAP_MCP_BEARER:-}" ]; then
+    printf '%s\n' "${IOWAP_MCP_BEARER}" > "${MCP_BEARER_FILE}"
+    echo "[entrypoint] IOWAP_MCP_BEARER mirrored to ${MCP_BEARER_FILE}"
 fi
 if [ -n "${IOWAP_MCP_BEARER:-}" ]; then
     echo "[entrypoint] starting iowap-mcp --http on port 7781 (bearer set)"
