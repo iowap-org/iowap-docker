@@ -14,6 +14,7 @@ to registered nodes over their capabilities.
 | ---------------- | ---------- | ------------------ | --------------------------------------------------- |
 | `iowap-node-base` | `base/`    | `python:3.11-slim` | [ghcr.io/iowap-org/iowap-node-base](https://github.com/iowap-org/iowap-docker/pkgs/container/iowap-node-base) |
 | `iowap-storage`  | `storage/` | `iowap-node-base`  | [ghcr.io/iowap-org/iowap-storage](https://github.com/iowap-org/iowap-docker/pkgs/container/iowap-storage) |
+| `iowap-universal-node` | `universal-node/` | `iowap-node-base` + `iowap-node-mcp` wheel (T-037) | [ghcr.io/iowap-org/iowap-universal-node](https://github.com/iowap-org/iowap-docker/pkgs/container/iowap-universal-node) |
 | `iowap-server`   | `server/`  | `python:3.11-slim` | [ghcr.io/iowap-org/iowap-server](https://github.com/iowap-org/iowap-docker/pkgs/container/iowap-server) |
 | `iowap-flow`     | `flow/`    | `python:3.11-slim` | [ghcr.io/iowap-org/iowap-flow](https://github.com/iowap-org/iowap-docker/pkgs/container/iowap-flow) |
 
@@ -24,6 +25,7 @@ time, so service images are rebuilt (not restarted) whenever the pin moves:
 graph LR
     A[iowap-node repo] -->|pip install git+ ref| B[base/ Dockerfile]
     B -->|FROM| C[storage/ Dockerfile]
+    B -->|FROM + universal-node/ layer| K[universal-node/ Dockerfile]
     D[iowap-server repo] -->|pip install git+ ref| E[server/ Dockerfile]
     F[iowap-flow repo] -->|pip install git+ ref| G[flow/ Dockerfile]
     B & C & E & G --> H[ghcr.io/iowap-org]
@@ -71,9 +73,10 @@ restart.
 
 ### Universal node
 
-`docker-compose.universal-node.yml` runs the plain node image
-(`iowap-node-base` — the same image every other IOWAP node is built from, no
-fork) as a self-contained **universal node**: it starts blank (idle, no relay
+`universal-node/docker-compose.yml` runs the universal-node **flavour** image
+(ghcr.io/iowap-org/iowap-universal-node — iowap-node-base plus the
+container-HTTP MCP layer built from the iowap-node-mcp wheel, T-037) as a
+self-contained **universal node**: it starts blank (idle, no relay
 traffic) and gains two optional integrations — a bridge to host-side
 capability providers and an HTTP MCP endpoint for agents on the same host.
 
@@ -81,11 +84,11 @@ Manual use (without any daemon):
 
 ```bash
 # Defaults: workspace under ./universal-node-workspace, MCP on 127.0.0.1:7781
-docker compose -f docker-compose.universal-node.yml up -d
+docker compose -f universal-node/docker-compose.yml up -d
 
 # Or point the workspace at your own host directory:
 IOWAP_WORKSPACE_DIR=/srv/iowap/workspace \
-  docker compose -f docker-compose.universal-node.yml up -d
+  docker compose -f universal-node/docker-compose.yml up -d
 ```
 
 The container starts idle until it is registered against a relay (e.g. via
@@ -120,18 +123,20 @@ there.
 
 ### Processes in the universal-node container
 
-The base image entrypoint manages up to two processes:
+The universal-node entrypoint (a 1:1 derivative of the base entrypoint with
+the MCP surface swapped, T-037) manages up to two processes:
 
 | Process | Port | Purpose |
 | ------- | ---- | ------- |
 | `iowap-daemon` (PID 1 child, `exec`'d) | `7783` (loopback) | Node UI + status, SSE/HTTP connection to the relay, heartbeat |
-| `iowap-mcp --http` (background, supervisor) | `7781` (loopback) | HTTP MCP endpoint for agents on the same host — **only started when `IOWAP_MCP_BEARER` is set**; otherwise the entrypoint logs `MCP disabled (no bearer)` and port 7781 stays closed. Serves Streamable HTTP at `/mcp` with the bearer as static auth (fail closed). |
+| `iowap-node-mcp --http` (background, supervisor) | `7781` (loopback) | HTTP MCP endpoint for agents on the same host — **only started when `IOWAP_MCP_BEARER` is set**; otherwise the entrypoint logs `MCP disabled (no bearer)` and port 7781 stays closed. Serves Streamable HTTP at `/mcp` with the bearer as static auth (fail closed). |
 
 The MCP server's PID is written to `~/.relay/mcp.pid` so the node dashboard
 can later enable/disable it (T-021). Both processes log to the container's
-stdout/stderr. `iowap-client-mcp[mcp]` (>= 0.1.8, PyPI) provides the
-`iowap-mcp` entry point; the HTTP transport binds `0.0.0.0` inside the
-container because the published port reaches the container's eth0 — the
+stdout/stderr. `iowap-node-mcp` (>= 0.1.0, PyPI) provides the
+`iowap-node-mcp` entry point and pulls `iowap-client-mcp` (>= 0.2.0) as its
+toolset dependency (T-037 split); the HTTP transport binds `0.0.0.0` inside
+the container because the published port reaches the container's eth0 — the
 host-side publish (`127.0.0.1:7781`) keeps it loopback-only from outside.
 
 ## Build args

@@ -94,7 +94,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [storage, server, flow]
+        image: [storage, server, flow, universal-node]
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -159,6 +159,18 @@ jobs:
           build-args: |
             IOWAP_FLOW_REF=${{ needs.build-base.outputs.iowap_flow_ref }}
 
+      - name: Build and push universal-node image
+        if: ${{ matrix.image == 'universal-node' }}
+        id: build_universal_node
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          push: true
+          tags: ghcr.io/iowap-org/iowap-${{ matrix.image }}:latest
+          build-args: |
+            NODE_BASE_IMAGE=ghcr.io/iowap-org/iowap-node-base@${{ needs.build-base.outputs.image_digest }}
+
       - name: Export storage digest
         if: ${{ matrix.image == 'storage' }}
         shell: bash
@@ -183,6 +195,14 @@ jobs:
           mkdir -p digests
           echo "ghcr.io/iowap-org/iowap-flow@${{ steps.build_flow.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
 
+      - name: Export universal-node digest
+        if: ${{ matrix.image == 'universal-node' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p digests
+          echo "ghcr.io/iowap-org/iowap-universal-node@${{ steps.build_universal_node.outputs.digest }}" > "digests/${{ matrix.image }}.txt"
+
       - name: Upload storage digest artifact
         if: ${{ matrix.image == 'storage' }}
         uses: actions/upload-artifact@v7
@@ -199,6 +219,13 @@ jobs:
 
       - name: Upload flow digest artifact
         if: ${{ matrix.image == 'flow' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-digests-${{ matrix.image }}
+          path: digests/${{ matrix.image }}.txt
+
+      - name: Upload universal-node digest artifact
+        if: ${{ matrix.image == 'universal-node' }}
         uses: actions/upload-artifact@v7
         with:
           name: image-digests-${{ matrix.image }}

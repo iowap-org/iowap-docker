@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+# IOWAP — Universal node image (T-020/T-037).
+#
+# Builds ``FROM iowap-node-base`` and adds the universal-node flavour layer:
+# the container-HTTP MCP surface (iowap-node-mcp — Streamable HTTP /mcp +
+# Bearer, T-037) on top of the plain node stack. The base image keeps
+# serving the other service images (storage/, etc.) unchanged; the universal
+# node is the operator-facing flavour for agents on the same host.
+#
+# A thin layer like storage/Dockerfile, with one extra step: the
+# iowap-node-mcp wheel install. iowap-node-mcp declares iowap-client-mcp
+# (>= 0.2.0, stdio-only since the T-037 split) as its dependency, so pip
+# upgrades the base image's client-mcp[mcp] 0.1.x install to 0.2.0 as part
+# of this step and the universal entrypoint starts `iowap-node-mcp --http`
+# (base/docker-entrypoint.sh still calls `iowap-mcp --http`, which the
+# 0.2.0 stdio-only package no longer accepts).
+#
+# Build context is the repo root, Dockerfile path is universal-node/Dockerfile:
+#
+#   docker build -t iowap-universal-node -f universal-node/Dockerfile .
+
+ARG NODE_BASE_IMAGE=iowap-node-base:latest
+FROM ${NODE_BASE_IMAGE}
+
+# The universal-node flavour keeps the base's node stack untouched and adds
+# the streaming-HTTP MCP wheel (brings iowap-client-mcp>=0.2.0 as dep).
+# system-wide as root, like the base image's own install — pip upgrades the
+# base's iowap-client-mcp[mcp] 0.1.x to 0.2.0 in the same site-packages.
+USER root
+RUN pip install --no-cache-dir "iowap-node-mcp>=0.1.0"
+USER appuser
+
+# Universal-node entrypoint: derived from base/docker-entrypoint.sh with the
+# MCP surface swapped to iowap-node-mcp (starts the daemon AND the bearer-
+# gated MCP process on 7781).
+COPY --chown=appuser:appuser universal-node/docker-entrypoint-universal.sh /app/docker-entrypoint-universal.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["python3", "/app/healthcheck.py"]
+
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/docker-entrypoint-universal.sh"]
+CMD ["iowap-daemon"]

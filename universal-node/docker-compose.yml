@@ -8,7 +8,7 @@
 #
 # Two ways to use this profile:
 #   * Manually (without any daemon): see the "Universal node" section in the
-#     README — `docker compose -f docker-compose.universal-node.yml up -d`.
+#     README — `docker compose -f universal-node/docker-compose.yml up -d`.
 #   * Via the bridge daemon: the daemon executes exactly this profile through
 #     the Docker Engine API (same image, same port mappings, same volumes)
 #     and injects the tokens as environment variables at container creation.
@@ -17,12 +17,19 @@
 # workspace volume is shared with the host-side bridge daemon for artifact
 # exchange. On Linux hosts, extra_hosts makes host.docker.internal resolve
 # to the host gateway (Docker Desktop provides this natively).
+#
+# T-037: this profile moved from the repo root to universal-node/
+# (storage service-dir pattern) and now runs the universal-node FLAVOUR
+# image (ghcr.io/iowap-org/iowap-universal-node) — iowap-node-base plus
+# the iowap-node-mcp streaming-HTTP MCP layer; the universal entrypoint
+# starts `iowap-node-mcp --http` instead of the base's `iowap-mcp --http`
+# (iowap-client-mcp 0.2.0 is stdio-only).
 
 name: iowap-universal-node
 
 services:
   universal-node:
-    image: ghcr.io/iowap-org/iowap-node-base:latest
+    image: ghcr.io/iowap-org/iowap-universal-node:latest
     container_name: iowap-universal-node
     restart: unless-stopped
     environment:
