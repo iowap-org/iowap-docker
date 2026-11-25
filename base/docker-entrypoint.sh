@@ -16,10 +16,6 @@
 #   RELAY_CLAIM_INTERVAL     — overrides claim_interval (seconds)
 #   RELAY_REQUEST_TIMEOUT    — overrides request_timeout (seconds)
 #   RELAY_LOG_LEVEL          — log level (DEBUG/INFO/WARNING/ERROR)
-#   IOWAP_MCP_BEARER   — Bearer token for the node's HTTP MCP endpoint.
-#                        Non-empty → entrypoint starts `iowap-mcp --http`
-#                        on port 7781 in the background (T-020); empty →
-#                        the MCP server stays off.
 #
 # Idempotent: reuses existing meta + token on subsequent starts.
 
@@ -199,40 +195,8 @@ else
     echo "[entrypoint] reusing existing metadata (${META_JSON})"
 fi
 
-# --- HTTP MCP supervisor (T-020) -------------------------------------------
-# The universal-node profile publishes 127.0.0.1:7781 → the in-container HTTP
-# MCP endpoint. Start `iowap-mcp --http` in the background only when a bearer
-# token is configured — without one the endpoint must stay off. The process
-# inherits this shell's stdout/stderr (container logs) and IOWAP_MCP_BEARER;
-# the PID file (~/.relay/mcp.pid) enables later enable/disable from the node
-# dashboard (T-021).
-MCP_PID_FILE="${RELAY_DIR}/mcp.pid"
-MCP_BEARER_FILE="${RELAY_DIR}/mcp_bearer"
-# T-021/T-016d: a manual `docker compose up` carries no IOWAP_MCP_BEARER env —
-# restore it from the dashboard's bearer file so the endpoint survives
-# container recreates that were not done via the daemon bootstrap.
-# T-016e: the FILE is the single source of truth for the running MCP
-# process — the dashboard writes and renders it, so a rotated file must
-# win over a stale container env (invalid_token desync).
-if [ -s "${MCP_BEARER_FILE}" ]; then
-    IOWAP_MCP_BEARER="$(tr -d '[:space:]' < "${MCP_BEARER_FILE}")"
-    export IOWAP_MCP_BEARER
-    echo "[entrypoint] IOWAP_MCP_BEARER from ${MCP_BEARER_FILE} (file wins)"
-elif [ -n "${IOWAP_MCP_BEARER:-}" ]; then
-    printf '%s\n' "${IOWAP_MCP_BEARER}" > "${MCP_BEARER_FILE}"
-    echo "[entrypoint] IOWAP_MCP_BEARER mirrored to ${MCP_BEARER_FILE}"
-fi
-if [ -n "${IOWAP_MCP_BEARER:-}" ]; then
-    echo "[entrypoint] starting iowap-mcp --http on port 7781 (bearer set)"
-    # --host 0.0.0.0: the process defaults to container-internal loopback, but
-    # the compose profile publishes 127.0.0.1:7781 -> container eth0 — a
-    # 127.0.0.1 bind inside the container would never receive that traffic.
-    # Exposure stays local: the host-side publish is loopback-only.
-    nohup iowap-mcp --http --host 0.0.0.0 --port 7781 &
-    echo $! > "${MCP_PID_FILE}"
-    echo "[entrypoint] iowap-mcp running (pid $(cat "${MCP_PID_FILE}"), pidfile ${MCP_PID_FILE})"
-else
-    echo "[entrypoint] MCP disabled (no bearer)"
-fi
+# (T-040 slim-down: the base never starts an HTTP MCP server. The
+# universal-node flavour entrypoint starts `iowap-node-mcp` bearer-gated on
+# top of this base; storage/flow have their own entrypoints.)
 
 exec "$@"
