@@ -1,0 +1,3 @@
+[submodule "universal-node/mcp"]
+	path = universal-node/mcp
+	url = https://github.com/iowap-org/iowap-universal-node.git

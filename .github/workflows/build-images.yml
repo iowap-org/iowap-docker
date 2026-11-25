@@ -13,6 +13,10 @@ on:
         description: "git ref of iowap-org/iowap-flow to bake into the flow image (empty = main)"
         required: false
         default: ""
+      iowap_universal_ref:
+        description: "git ref of iowap-org/iowap-universal-node to bake into the universal-node image (empty = main; overrides the universal-node/mcp gitlink for this build)"
+        required: false
+        default: ""
   repository_dispatch:
     types: [rebuild-images]
 
@@ -28,6 +32,7 @@ jobs:
       iowap_node_ref: ${{ steps.refs.outputs.iowap_node_ref }}
       iowap_server_ref: ${{ steps.refs.outputs.iowap_server_ref }}
       iowap_flow_ref: ${{ steps.refs.outputs.iowap_flow_ref }}
+      iowap_universal_ref: ${{ steps.refs.outputs.iowap_universal_ref }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -56,9 +61,17 @@ jobs:
           if [ -z "$IOWAP_FLOW_REF" ]; then
             IOWAP_FLOW_REF="main"
           fi
+          IOWAP_UNIVERSAL_REF="${{ github.event.inputs.iowap_universal_ref || '' }}"
+          if [ -z "$IOWAP_UNIVERSAL_REF" ]; then
+            IOWAP_UNIVERSAL_REF="$(jq -r '.client_payload?.iowap_universal_ref // empty' "$GITHUB_EVENT_PATH")"
+          fi
+          if [ -z "$IOWAP_UNIVERSAL_REF" ]; then
+            IOWAP_UNIVERSAL_REF="main"
+          fi
           echo "iowap_node_ref=$IOWAP_NODE_REF" >> "$GITHUB_OUTPUT"
           echo "iowap_server_ref=$IOWAP_SERVER_REF" >> "$GITHUB_OUTPUT"
           echo "iowap_flow_ref=$IOWAP_FLOW_REF" >> "$GITHUB_OUTPUT"
+          echo "iowap_universal_ref=$IOWAP_UNIVERSAL_REF" >> "$GITHUB_OUTPUT"
 
       - name: Validate resolved refs
         shell: bash
@@ -98,6 +111,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # recursive: universal-node/mcp is a gitlink onto
+          # iowap-org/iowap-universal-node (authoritative mcp-package source,
+          # no PyPI for that package). storage/server/flow have no submodules
+          # and are unaffected.
+          submodules: recursive
 
       - name: Validate base digest
         shell: bash
@@ -158,6 +177,19 @@ jobs:
             ghcr.io/iowap-org/iowap-${{ matrix.image }}:${{ needs.build-base.outputs.iowap_flow_ref }}
           build-args: |
             IOWAP_FLOW_REF=${{ needs.build-base.outputs.iowap_flow_ref }}
+
+      - name: Override universal-node ref (optional)
+        if: ${{ matrix.image == 'universal-node' && needs.build-base.outputs.iowap_universal_ref != 'main' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The universal-node/mcp gitlink pins the default source; an explicit
+          # iowap_universal_ref (dispatch/repository_dispatch) overrides it for
+          # this build, mirroring how IOWAP_NODE_REF steers the base image.
+          git config --global --add safe.directory "$PWD/universal-node/mcp"
+          git -C universal-node/mcp fetch origin "${{ needs.build-base.outputs.iowap_universal_ref }}"
+          git -C universal-node/mcp checkout FETCH_HEAD
+          echo "universal-node/mcp overridden to ${{ needs.build-base.outputs.iowap_universal_ref }}"
 
       - name: Build and push universal-node image
         if: ${{ matrix.image == 'universal-node' }}

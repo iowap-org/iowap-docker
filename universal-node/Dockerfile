@@ -7,13 +7,24 @@
 # serving the other service images (storage/, etc.) unchanged; the universal
 # node is the operator-facing flavour for agents on the same host.
 #
-# A thin layer like storage/Dockerfile, with one extra step: the
-# iowap-node-mcp wheel install. iowap-node-mcp declares iowap-client-mcp
-# (>= 0.2.0, stdio-only since the T-037 split) as its dependency, so pip
-# upgrades the base image's client-mcp[mcp] 0.1.x install to 0.2.0 as part
-# of this step and the universal entrypoint starts `iowap-node-mcp --http`
-# (base/docker-entrypoint.sh still calls `iowap-mcp --http`, which the
-# 0.2.0 stdio-only package no longer accepts).
+# The mcp package code is baked from the SOURCE REPO, not PyPI (owner call
+# 2026-11-25): `universal-node/mcp/` is a GITLINK (submodule) onto
+# iowap-org/iowap-universal-node — the authoritative source, no plain
+# copies. The submodule holds the repo root, so the package directory inside
+# it is `mcp/` (→ universal-node/mcp/mcp/), which is what gets COPY'd to
+# /app/mcp and pip-installed. The version stays maintained in that
+# pyproject.toml (0.1.0 / T-037); only the PyPI release is dropped.
+# Requires the submodule to be checked out before the build:
+#
+#   git submodule update --init universal-node/mcp    # local
+#   (CI: actions/checkout with submodules: recursive)
+#
+# iowap-node-mcp declares iowap-client-mcp (>= 0.2.0, stdio-only since the
+# T-037 split) as its dependency, so pip still pulls/upgrades that wheel
+# (plus the mcp SDK and uvicorn) from PyPI as part of this install, and the
+# universal entrypoint starts `iowap-node-mcp --http` (base/
+# docker-entrypoint.sh still calls `iowap-mcp --http`, which the 0.2.0
+# stdio-only package no longer accepts).
 #
 # Build context is the repo root, Dockerfile path is universal-node/Dockerfile:
 #
@@ -23,11 +34,13 @@ ARG NODE_BASE_IMAGE=iowap-node-base:latest
 FROM ${NODE_BASE_IMAGE}
 
 # The universal-node flavour keeps the base's node stack untouched and adds
-# the streaming-HTTP MCP wheel (brings iowap-client-mcp>=0.2.0 as dep).
-# system-wide as root, like the base image's own install — pip upgrades the
-# base's iowap-client-mcp[mcp] 0.1.x to 0.2.0 in the same site-packages.
+# the streaming-HTTP MCP package from the universal-node repo (gitlink, no
+# PyPI for this package). system-wide as root, like the base image's own
+# install — pip upgrades the base's iowap-client-mcp[mcp] 0.1.x to 0.2.0 in
+# the same site-packages while wiring the just-copied iowap-node-mcp in.
+COPY --chown=appuser:appuser universal-node/mcp/mcp/ /app/mcp/
 USER root
-RUN pip install --no-cache-dir "iowap-node-mcp>=0.1.0"
+RUN pip install --no-cache-dir /app/mcp
 USER appuser
 
 # Universal-node entrypoint: derived from base/docker-entrypoint.sh with the
