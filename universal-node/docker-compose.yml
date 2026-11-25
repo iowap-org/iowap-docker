@@ -63,6 +63,14 @@ services:
       # agent metadata, token) live in ~/.relay inside the container. A named
       # volume keeps registration state across restarts and recreates.
       - universal-node-state:/home/appuser/.relay
+      # Agent tokens + bindings (T-035): the node manages its MCP agents
+      # itself — dashboard-minted agent Bearer tokens (SHA-256 hashes only)
+      # and the task↔token bindings live in agents.json / bindings.json on
+      # this dedicated volume, mounted at /data/agents. Named volume on
+      # purpose (DEC 2026-11-25): the tokens are deliberately NOT in the
+      # bind-mounted workspace that the Windows Explorer on the host sees;
+      # a container without this mount falls back to <relay-dir>/agents.
+      - iowap-agent-tokens:/data/agents
     extra_hosts:
       # Linux hosts only: makes host.docker.internal resolve to the host
       # gateway — the bridge URL configured in node.yaml relies on it.
@@ -72,3 +80,6 @@ services:
 
 volumes:
   universal-node-state:
+  # Agent tokens + bindings (T-035, DEC 2026-11-25): created by compose at
+  # first `up`, survives recreates; never on the Windows bind mount.
+  iowap-agent-tokens:
