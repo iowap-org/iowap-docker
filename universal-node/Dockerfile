@@ -41,6 +41,13 @@ FROM ${NODE_BASE_IMAGE}
 COPY --chown=appuser:appuser universal-node/mcp/mcp/ /app/mcp/
 USER root
 RUN pip install --no-cache-dir /app/mcp
+# T-050: pre-create the agent-token store dir with appuser ownership BEFORE
+# switching users. A first-mount named volume (iowap-agent-tokens →
+# /data/agents) inherits this image-side content + ownership, so fresh
+# installs are appuser-writable from the bake. Volumes that pre-date this
+# change keep their (root) ownership — the store resolver's write probe +
+# relay-dir fallback (node 2.3.68 / node-mcp 0.1.3) covers those at runtime.
+RUN mkdir -p /data/agents && chown -R appuser:appuser /data/agents
 USER appuser
 
 # Universal-node entrypoint: derived from base/docker-entrypoint.sh with the
