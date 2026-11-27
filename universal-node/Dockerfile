@@ -21,10 +21,10 @@
 #
 # iowap-node-mcp declares iowap-client-mcp (>= 0.2.0, stdio-only since the
 # T-037 split) as its dependency, so pip still pulls/upgrades that wheel
-# (plus the mcp SDK and uvicorn) from PyPI as part of this install, and the
-# universal entrypoint starts `iowap-node-mcp --http` (base/
-# docker-entrypoint.sh still calls `iowap-mcp --http`, which the 0.2.0
-# stdio-only package no longer accepts).
+# (plus the mcp SDK and uvicorn) from PyPI as part of this install. Since
+# the T-040 slim-down the base image no longer starts or ships any MCP —
+# the universal entrypoint (docker-entrypoint-universal.sh) starts
+# `iowap-node-mcp --http` on 7781 and is the only MCP surface in this image.
 #
 # Build context is the repo root, Dockerfile path is universal-node/Dockerfile:
 #
